@@ -1,0 +1,18 @@
+:root { font-family: "Segoe UI", Tahoma, sans-serif; color: #17211d; background: #f3f5f2; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 1100px; min-height: 100vh; }
+button, input { font: inherit; }
+.app-shell { min-height: 100vh; display: grid; grid-template-columns: 250px 1fr; direction: rtl; }
+.sidebar { background: #10251d; color: #eef5f1; padding: 28px 20px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+.brand { display: flex; gap: 12px; align-items: center; padding: 0 8px 28px; border-bottom: 1px solid #294036; }
+.brand-mark { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid #c5a664; color: #c5a664; font-size: 22px; border-radius: 10px; }
+.brand strong, .brand small { display: block; }.brand strong { font-size: 21px; }.brand small { color: #8ea097; font-size: 10px; margin-top: 3px; }
+nav { display: grid; gap: 8px; margin-top: 26px; }
+.nav-item { border: 0; background: transparent; color: #aebdb6; padding: 13px 16px; text-align: right; border-radius: 8px; cursor: pointer; }
+.nav-item:hover, .nav-item.active { background: #203c30; color: white; }.nav-item.active { box-shadow: inset -3px 0 #c5a664; }
+.office-card { margin-top: auto; padding: 16px; background: #193329; border: 1px solid #2b493d; border-radius: 10px; }.office-card span,.office-card strong,.office-card small { display:block }.office-card span { color:#8ea097;font-size:11px }.office-card strong{font-size:13px;margin:7px 0}.office-card small{color:#80c09d;font-size:11px}
+main { padding: 36px 42px; overflow: hidden; }.topbar { display:flex; justify-content:space-between; align-items:center; }.topbar p { color:#748078;font-size:12px;margin:0 0 5px }.topbar h1{margin:0;font-size:28px}.primary{border:0;background:#b8954e;color:#fff;padding:12px 20px;border-radius:8px;font-weight:700;cursor:pointer}.primary:hover{background:#a18141}
+.stats { display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:32px 0 }.stats article{background:#fff;border:1px solid #e2e6e2;padding:20px;border-radius:10px}.stats span,.stats strong,.stats small{display:block}.stats span{color:#68736d;font-size:12px}.stats strong{font-size:23px;margin:12px 0}.stats small{color:#8b948f;font-size:11px}.stats .positive{color:#36835b}.stats .warning{color:#a27024}
+.panel { background:#fff;border:1px solid #e0e5e1;border-radius:12px;overflow:hidden }.panel-head{display:flex;justify-content:space-between;align-items:center;padding:22px 24px;border-bottom:1px solid #e8ebe9}.panel-head h2{font-size:18px;margin:0}.panel-head p{color:#89918d;font-size:11px;margin:5px 0 0}.panel-head input{width:260px;padding:10px 14px;border:1px solid #d9dfdb;border-radius:7px;background:#f8faf8;outline:none}.panel-head input:focus{border-color:#9a814e;box-shadow:0 0 0 3px #b8954e1f}
+.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:12px;text-align:right}th{padding:13px 18px;background:#f7f8f7;color:#768079;font-weight:600}td{padding:17px 18px;border-top:1px solid #edf0ee;white-space:nowrap}.contract-id{font-family:Consolas,monospace;color:#52675d}.status{padding:5px 9px;border-radius:999px;font-size:10px}.status-مكتمل{background:#e4f2e9;color:#267046}.status-مسودة{background:#eef0ef;color:#647069}.status-بانتظار\ الدفع{background:#fff0d7;color:#98661a}.empty{text-align:center;color:#7f8983;padding:28px}
+@media(max-width:1200px){.stats{grid-template-columns:repeat(2,1fr)}}
