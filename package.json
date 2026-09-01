@@ -1,0 +1,62 @@
+{
+  "name": "maktoob-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "مكتوب — من السجلات إلى الديسكتوب. نظام العقود للمكاتب العراقية.",
+  "author": "NAS CodeWorks",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"npm:dev:electron\"",
+    "dev:electron": "wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
+    "build": "tsc -b && vite build && tsc -p electron/tsconfig.json",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc -b --pretty false",
+    "preview": "vite preview",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@hookform/resolvers": "latest",
+    "better-sqlite3": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-hook-form": "latest",
+    "react-router-dom": "latest",
+    "zod": "latest",
+    "zustand": "latest"
+  },
+  "devDependencies": {
+    "@eslint/js": "latest",
+    "@types/better-sqlite3": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "concurrently": "latest",
+    "cross-env": "latest",
+    "electron": "latest",
+    "electron-builder": "latest",
+    "eslint": "latest",
+    "eslint-plugin-react-hooks": "latest",
+    "eslint-plugin-react-refresh": "latest",
+    "globals": "latest",
+    "typescript": "latest",
+    "typescript-eslint": "latest",
+    "vite": "latest",
+    "wait-on": "latest"
+  },
+  "build": {
+    "appId": "iq.nascodeworks.maktoob",
+    "productName": "مكتوب",
+    "asar": true,
+    "files": ["dist/**/*", "dist-electron/**/*", "package.json"],
+    "win": {"target": "nsis"},
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
