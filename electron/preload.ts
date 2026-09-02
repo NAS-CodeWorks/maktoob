@@ -1,9 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { ContractInput, ContractTemplateInput, MaktoobAPI, PaymentInput } from '../shared/domain.js';
+import type { ContractInput, ContractTemplateInput, MaktoobAPI, OfficeProfile, PaymentInput } from '../shared/domain.js';
 
 const api: MaktoobAPI = {
   platform: process.platform,
-  version: '0.3.0',
+  version: '0.4.0',
   dashboard: () => ipcRenderer.invoke('dashboard:get'),
   listContracts: (query?: string) => ipcRenderer.invoke('contracts:list', query),
   getContract: (id: number) => ipcRenderer.invoke('contracts:get', id),
@@ -14,6 +14,8 @@ const api: MaktoobAPI = {
   createTemplate: (input: ContractTemplateInput) => ipcRenderer.invoke('templates:create', input),
   updateTemplate: (id: number, input: ContractTemplateInput) => ipcRenderer.invoke('templates:update', id, input),
   deleteTemplate: (id: number) => ipcRenderer.invoke('templates:delete', id),
+  getOfficeProfile: () => ipcRenderer.invoke('office:get'),
+  updateOfficeProfile: (profile: OfficeProfile) => ipcRenderer.invoke('office:update', profile),
   listParties: (query?: string) => ipcRenderer.invoke('parties:list', query),
   listPayments: (query?: string) => ipcRenderer.invoke('payments:list', query),
   addPayment: (input: PaymentInput) => ipcRenderer.invoke('payments:add', input),

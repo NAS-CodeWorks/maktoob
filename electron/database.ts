@@ -7,6 +7,7 @@ import type {
   ContractTemplateInput,
   Currency,
   DashboardSummary,
+  OfficeProfile,
   PartyInput,
   PartySummary,
   Payment,
@@ -117,6 +118,17 @@ function validateTemplate(input: ContractTemplateInput): ContractTemplateInput {
   };
 }
 
+function validateOfficeProfile(input: OfficeProfile): OfficeProfile {
+  if (!input || typeof input !== 'object') throw new Error('بيانات المكتب غير صالحة');
+  return {
+    officeName: cleanText(input.officeName, 'اسم المكتب', true),
+    managerName: cleanText(input.managerName, 'اسم المسؤول'),
+    phone: cleanText(input.phone, 'هاتف المكتب'),
+    address: cleanText(input.address, 'عنوان المكتب'),
+    footerNote: cleanText(input.footerNote, 'تذييل المستند'),
+  };
+}
+
 function parseClauses(value: string) {
   try {
     const clauses = JSON.parse(value);
@@ -203,6 +215,15 @@ export class MaktoobDatabase {
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS office_profile (
+        id INTEGER PRIMARY KEY CHECK(id = 1),
+        office_name TEXT NOT NULL,
+        manager_name TEXT NOT NULL DEFAULT '',
+        phone TEXT NOT NULL DEFAULT '',
+        address TEXT NOT NULL DEFAULT '',
+        footer_note TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
       CREATE INDEX IF NOT EXISTS idx_contracts_date ON contracts(contract_date DESC);
       CREATE INDEX IF NOT EXISTS idx_contracts_number ON contracts(contract_number);
       CREATE INDEX IF NOT EXISTS idx_parties_name ON parties(name);
@@ -223,6 +244,9 @@ export class MaktoobDatabase {
         1
       WHERE NOT EXISTS (SELECT 1 FROM contract_templates);
       INSERT OR IGNORE INTO schema_migrations(version) VALUES (2);
+      INSERT OR IGNORE INTO office_profile(id, office_name, footer_note)
+      VALUES (1, 'مكتب العقود', 'أُنشئ بواسطة نظام مكتوب — NAS CodeWorks');
+      INSERT OR IGNORE INTO schema_migrations(version) VALUES (3);
     `);
   }
 
@@ -399,6 +423,25 @@ export class MaktoobDatabase {
     const template = this.getTemplate(id);
     if (template.isDefault) throw new Error('لا يمكن حذف القالب الافتراضي؛ عيّن قالباً آخر كافتراضي أولاً');
     this.db.prepare('DELETE FROM contract_templates WHERE id=?').run(id);
+  }
+
+  getOfficeProfile(): OfficeProfile {
+    const row = this.db.prepare('SELECT * FROM office_profile WHERE id=1').get() as Record<string, unknown> | undefined;
+    if (!row) throw new Error('تعذر تحميل إعدادات المكتب');
+    return {
+      officeName: String(row.office_name),
+      managerName: String(row.manager_name),
+      phone: String(row.phone),
+      address: String(row.address),
+      footerNote: String(row.footer_note),
+    };
+  }
+
+  updateOfficeProfile(raw: OfficeProfile): OfficeProfile {
+    const input = validateOfficeProfile(raw);
+    this.db.prepare(`UPDATE office_profile SET office_name=?, manager_name=?, phone=?, address=?, footer_note=?, updated_at=CURRENT_TIMESTAMP WHERE id=1`)
+      .run(input.officeName, input.managerName, input.phone, input.address, input.footerNote);
+    return this.getOfficeProfile();
   }
 
   deleteContract(id: number) {

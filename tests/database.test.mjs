@@ -72,3 +72,12 @@ test('keeps contract clauses after deleting a non-default template', async () =>
   assert.equal(stored.templateName, 'قالب مؤقت');
   assert.deepEqual(stored.clauses, ['بند محفوظ']);
 }));
+
+test('persists validated office identity settings', async () => withDatabase(async (database) => {
+  assert.equal(database.getOfficeProfile().officeName, 'مكتب العقود');
+  const profile = database.updateOfficeProfile({ officeName: 'مكتب الفرات للعقود', managerName: 'سفيان ناصر', phone: '07800000000', address: 'الرمادي', footerNote: 'وثيقة صادرة من مكتب الفرات' });
+  assert.equal(profile.managerName, 'سفيان ناصر');
+  database.reopen();
+  assert.deepEqual(database.getOfficeProfile(), profile);
+  assert.throws(() => database.updateOfficeProfile({ ...profile, officeName: '  ' }), /اسم المكتب/);
+}));

@@ -27,7 +27,7 @@ npm test
 npm run build
 ```
 
-## Implemented through 0.3
+## Implemented through 0.4
 - Atomic contract CRUD with automatic numbering.
 - Local SQLite storage for contracts, parties and payments.
 - Search and operational dashboard totals.
@@ -38,6 +38,7 @@ npm run build
 - Editable contract-template library with a safe default template.
 - Immutable clause snapshots stored with each contract.
 - Template clauses included in contract details and A4 PDF output.
+- Persistent office identity settings for branded PDF headers and footers.
 
 ## Windows package
 ```bash

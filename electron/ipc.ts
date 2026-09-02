@@ -1,6 +1,6 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { copyFile, rm, writeFile } from 'node:fs/promises';
-import type { Contract, ContractInput, ContractTemplateInput, PaymentInput } from '../shared/domain.js';
+import type { Contract, ContractInput, ContractTemplateInput, OfficeProfile, PaymentInput } from '../shared/domain.js';
 import { MaktoobDatabase } from './database.js';
 
 function escapeHtml(value: string | number) {
@@ -11,7 +11,7 @@ function money(value: number, currency: Contract['currency']) {
   return `${new Intl.NumberFormat(currency === 'IQD' ? 'ar-IQ' : 'en-US', { maximumFractionDigits: currency === 'IQD' ? 0 : 2 }).format(value)} ${currency === 'IQD' ? 'د.ع' : '$'}`;
 }
 
-function contractHtml(contract: Contract) {
+function contractHtml(contract: Contract, profile: OfficeProfile) {
   const status = { draft: 'مسودة', completed: 'مكتمل', pending_payment: 'بانتظار الدفع' }[contract.status];
   const paymentRows = contract.payments.length
     ? contract.payments.map((payment) => `<tr><td>${escapeHtml(payment.paymentDate)}</td><td>${escapeHtml(payment.method)}</td><td>${money(payment.amount, contract.currency)}</td><td>${escapeHtml(payment.note)}</td></tr>`).join('')
@@ -24,9 +24,9 @@ function contractHtml(contract: Contract) {
     table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #d9dfdb;padding:8px;text-align:right}th{background:#f3f5f2}
     .summary{margin-top:20px;margin-right:auto;width:280px}.summary div{display:flex;justify-content:space-between;border-bottom:1px solid #e4e7e5;padding:6px 0}
     .clauses{margin-top:20px}.clauses h2{font-size:16px;color:#795f2f}.clauses ol{padding-right:22px}.clauses li{margin-bottom:9px}
-    footer{margin-top:40px;padding-top:12px;border-top:1px solid #d9dfdb;text-align:center;color:#7b847f;font-size:10px}
+    footer{margin-top:40px;padding-top:12px;border-top:1px solid #d9dfdb;text-align:center;color:#7b847f;font-size:10px}.office-contact{margin-top:5px}
   </style></head><body>
-    <header><div><h1>مكتوب</h1><div class="muted">من السجلات إلى الديسكتوب</div></div><div><strong>${escapeHtml(contract.contractNumber)}</strong><br><span class="muted">${escapeHtml(status)}</span></div></header>
+    <header><div><h1>${escapeHtml(profile.officeName)}</h1><div class="muted">${profile.managerName ? `المسؤول: ${escapeHtml(profile.managerName)}` : 'نظام إدارة العقود'}</div></div><div><strong>${escapeHtml(contract.contractNumber)}</strong><br><span class="muted">${escapeHtml(status)}</span></div></header>
     <div class="meta"><div class="box"><span class="muted">نوع العقد</span><br><strong>${escapeHtml(contract.type)}</strong></div><div class="box"><span class="muted">تاريخ العقد</span><br><strong>${escapeHtml(contract.contractDate)}</strong></div><div class="box"><span class="muted">قيمة العقد</span><br><strong>${money(contract.amount, contract.currency)}</strong></div></div>
     <section class="parties"><div class="box party"><h2>الطرف الأول</h2><p><strong>${escapeHtml(contract.firstParty.name)}</strong></p><p>الهاتف: ${escapeHtml(contract.firstParty.phone || '—')}</p><p>الهوية: ${escapeHtml(contract.firstParty.identifier || '—')}</p><p>العنوان: ${escapeHtml(contract.firstParty.address || '—')}</p></div>
     <div class="box party"><h2>الطرف الثاني</h2><p><strong>${escapeHtml(contract.secondParty.name)}</strong></p><p>الهاتف: ${escapeHtml(contract.secondParty.phone || '—')}</p><p>الهوية: ${escapeHtml(contract.secondParty.identifier || '—')}</p><p>العنوان: ${escapeHtml(contract.secondParty.address || '—')}</p></div></section>
@@ -34,7 +34,7 @@ function contractHtml(contract: Contract) {
     ${contract.clauses.length ? `<section class="clauses"><h2>${escapeHtml(contract.templateName || 'بنود العقد')}</h2><ol>${contract.clauses.map((clause) => `<li>${escapeHtml(clause)}</li>`).join('')}</ol></section>` : ''}
     <table><thead><tr><th>تاريخ الدفعة</th><th>طريقة الدفع</th><th>المبلغ</th><th>ملاحظة</th></tr></thead><tbody>${paymentRows}</tbody></table>
     <div class="summary"><div><span>قيمة العقد</span><strong>${money(contract.amount, contract.currency)}</strong></div><div><span>المستلم</span><strong>${money(contract.paidAmount, contract.currency)}</strong></div><div><span>المتبقي</span><strong>${money(contract.remainingAmount, contract.currency)}</strong></div></div>
-    <footer>أُنشئ بواسطة نظام مكتوب — NAS CodeWorks</footer></body></html>`;
+    <footer>${escapeHtml(profile.footerNote || 'أُنشئ بواسطة نظام مكتوب — NAS CodeWorks')}<div class="office-contact">${[profile.phone, profile.address].filter(Boolean).map(escapeHtml).join(' · ')}</div></footer></body></html>`;
 }
 
 export function registerIpc(database: MaktoobDatabase) {
@@ -48,6 +48,8 @@ export function registerIpc(database: MaktoobDatabase) {
   ipcMain.handle('templates:create', (_event, input: ContractTemplateInput) => database.createTemplate(input));
   ipcMain.handle('templates:update', (_event, id: number, input: ContractTemplateInput) => database.updateTemplate(id, input));
   ipcMain.handle('templates:delete', (_event, id: number) => database.deleteTemplate(id));
+  ipcMain.handle('office:get', () => database.getOfficeProfile());
+  ipcMain.handle('office:update', (_event, profile: OfficeProfile) => database.updateOfficeProfile(profile));
   ipcMain.handle('parties:list', (_event, query?: string) => database.listParties(query));
   ipcMain.handle('payments:list', (_event, query?: string) => database.listPayments(query));
   ipcMain.handle('payments:add', (_event, input: PaymentInput) => database.addPayment(input));
@@ -98,7 +100,7 @@ export function registerIpc(database: MaktoobDatabase) {
     if (selection.canceled || !selection.filePath) return { ok: false as const, message: 'تم إلغاء العملية' };
     const window = new BrowserWindow({ show: false, webPreferences: { sandbox: true, nodeIntegration: false, contextIsolation: true } });
     try {
-      await window.loadURL(`data:text/html;charset=UTF-8,${encodeURIComponent(contractHtml(contract))}`);
+      await window.loadURL(`data:text/html;charset=UTF-8,${encodeURIComponent(contractHtml(contract, database.getOfficeProfile()))}`);
       const pdf = await window.webContents.printToPDF({ printBackground: true, pageSize: 'A4' });
       await writeFile(selection.filePath, pdf);
       return { ok: true as const, path: selection.filePath };
