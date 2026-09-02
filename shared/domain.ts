@@ -15,8 +15,23 @@ export type ContractInput = {
   amount: number;
   currency: Currency;
   notes: string;
+  templateId: number | null;
   firstParty: PartyInput;
   secondParty: PartyInput;
+};
+
+export type ContractTemplateInput = {
+  name: string;
+  description: string;
+  clauses: string[];
+  isDefault: boolean;
+};
+
+export type ContractTemplate = ContractTemplateInput & {
+  id: number;
+  contractsCount: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type PaymentInput = {
@@ -50,6 +65,9 @@ export type Contract = {
   amount: number;
   currency: Currency;
   notes: string;
+  templateId: number | null;
+  templateName: string;
+  clauses: string[];
   firstParty: Party;
   secondParty: Party;
   paidAmount: number;
@@ -92,6 +110,10 @@ export type MaktoobAPI = {
   createContract: (input: ContractInput) => Promise<Contract>;
   updateContract: (id: number, input: ContractInput) => Promise<Contract>;
   deleteContract: (id: number) => Promise<void>;
+  listTemplates: (query?: string) => Promise<ContractTemplate[]>;
+  createTemplate: (input: ContractTemplateInput) => Promise<ContractTemplate>;
+  updateTemplate: (id: number, input: ContractTemplateInput) => Promise<ContractTemplate>;
+  deleteTemplate: (id: number) => Promise<void>;
   listParties: (query?: string) => Promise<PartySummary[]>;
   listPayments: (query?: string) => Promise<PaymentListItem[]>;
   addPayment: (input: PaymentInput) => Promise<Payment>;
