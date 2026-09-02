@@ -109,6 +109,30 @@ export type OfficeProfile = {
   footerNote: string;
 };
 
+export type LicensePayload = {
+  version: 1;
+  licenseId: string;
+  customerName: string;
+  deviceId: string;
+  issuedAt: string;
+  expiresAt: string | null;
+  features: string[];
+};
+
+export type SignedLicense = {
+  payload: LicensePayload;
+  signature: string;
+};
+
+export type LicenseStatus = 'active' | 'missing' | 'invalid' | 'expired' | 'wrong_device' | 'configuration_error';
+
+export type LicenseState = {
+  status: LicenseStatus;
+  deviceId: string;
+  message: string;
+  payload?: LicensePayload;
+};
+
 export type MaktoobAPI = {
   platform: string;
   version: string;
@@ -124,6 +148,8 @@ export type MaktoobAPI = {
   deleteTemplate: (id: number) => Promise<void>;
   getOfficeProfile: () => Promise<OfficeProfile>;
   updateOfficeProfile: (profile: OfficeProfile) => Promise<OfficeProfile>;
+  getLicenseState: () => Promise<LicenseState>;
+  importLicense: () => Promise<LicenseState>;
   listParties: (query?: string) => Promise<PartySummary[]>;
   listPayments: (query?: string) => Promise<PaymentListItem[]>;
   addPayment: (input: PaymentInput) => Promise<Payment>;

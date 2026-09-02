@@ -2,6 +2,7 @@ import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { copyFile, rm, writeFile } from 'node:fs/promises';
 import type { Contract, ContractInput, ContractTemplateInput, OfficeProfile, PaymentInput } from '../shared/domain.js';
 import { MaktoobDatabase } from './database.js';
+import { LicenseManager } from './licensing.js';
 
 function escapeHtml(value: string | number) {
   return String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]!);
@@ -37,25 +38,33 @@ function contractHtml(contract: Contract, profile: OfficeProfile) {
     <footer>${escapeHtml(profile.footerNote || 'أُنشئ بواسطة نظام مكتوب — NAS CodeWorks')}<div class="office-contact">${[profile.phone, profile.address].filter(Boolean).map(escapeHtml).join(' · ')}</div></footer></body></html>`;
 }
 
-export function registerIpc(database: MaktoobDatabase) {
-  ipcMain.handle('dashboard:get', () => database.dashboard());
-  ipcMain.handle('contracts:list', (_event, query?: string) => database.listContracts(query));
-  ipcMain.handle('contracts:get', (_event, id: number) => database.getContract(id));
-  ipcMain.handle('contracts:create', (_event, input: ContractInput) => database.createContract(input));
-  ipcMain.handle('contracts:update', (_event, id: number, input: ContractInput) => database.updateContract(id, input));
-  ipcMain.handle('contracts:delete', (_event, id: number) => database.deleteContract(id));
-  ipcMain.handle('templates:list', (_event, query?: string) => database.listTemplates(query));
-  ipcMain.handle('templates:create', (_event, input: ContractTemplateInput) => database.createTemplate(input));
-  ipcMain.handle('templates:update', (_event, id: number, input: ContractTemplateInput) => database.updateTemplate(id, input));
-  ipcMain.handle('templates:delete', (_event, id: number) => database.deleteTemplate(id));
-  ipcMain.handle('office:get', () => database.getOfficeProfile());
-  ipcMain.handle('office:update', (_event, profile: OfficeProfile) => database.updateOfficeProfile(profile));
-  ipcMain.handle('parties:list', (_event, query?: string) => database.listParties(query));
-  ipcMain.handle('payments:list', (_event, query?: string) => database.listPayments(query));
-  ipcMain.handle('payments:add', (_event, input: PaymentInput) => database.addPayment(input));
-  ipcMain.handle('payments:delete', (_event, id: number) => database.deletePayment(id));
+export function registerIpc(database: MaktoobDatabase, licenseManager: LicenseManager) {
+  const licensed = <T>(operation: () => T) => { licenseManager.requireActive(); return operation(); };
+  ipcMain.handle('license:status', () => licenseManager.getState());
+  ipcMain.handle('license:import', async () => {
+    const selection = await dialog.showOpenDialog({ title: 'اختيار ملف ترخيص مكتوب', properties: ['openFile'], filters: [{ name: 'Maktoob license', extensions: ['json', 'license'] }] });
+    if (selection.canceled || !selection.filePaths[0]) return licenseManager.getState();
+    return licenseManager.importLicense(selection.filePaths[0]);
+  });
+  ipcMain.handle('dashboard:get', () => licensed(() => database.dashboard()));
+  ipcMain.handle('contracts:list', (_event, query?: string) => licensed(() => database.listContracts(query)));
+  ipcMain.handle('contracts:get', (_event, id: number) => licensed(() => database.getContract(id)));
+  ipcMain.handle('contracts:create', (_event, input: ContractInput) => licensed(() => database.createContract(input)));
+  ipcMain.handle('contracts:update', (_event, id: number, input: ContractInput) => licensed(() => database.updateContract(id, input)));
+  ipcMain.handle('contracts:delete', (_event, id: number) => licensed(() => database.deleteContract(id)));
+  ipcMain.handle('templates:list', (_event, query?: string) => licensed(() => database.listTemplates(query)));
+  ipcMain.handle('templates:create', (_event, input: ContractTemplateInput) => licensed(() => database.createTemplate(input)));
+  ipcMain.handle('templates:update', (_event, id: number, input: ContractTemplateInput) => licensed(() => database.updateTemplate(id, input)));
+  ipcMain.handle('templates:delete', (_event, id: number) => licensed(() => database.deleteTemplate(id)));
+  ipcMain.handle('office:get', () => licensed(() => database.getOfficeProfile()));
+  ipcMain.handle('office:update', (_event, profile: OfficeProfile) => licensed(() => database.updateOfficeProfile(profile)));
+  ipcMain.handle('parties:list', (_event, query?: string) => licensed(() => database.listParties(query)));
+  ipcMain.handle('payments:list', (_event, query?: string) => licensed(() => database.listPayments(query)));
+  ipcMain.handle('payments:add', (_event, input: PaymentInput) => licensed(() => database.addPayment(input)));
+  ipcMain.handle('payments:delete', (_event, id: number) => licensed(() => database.deletePayment(id)));
 
   ipcMain.handle('backup:create', async () => {
+    licenseManager.requireActive();
     const selection = await dialog.showSaveDialog({
       title: 'حفظ نسخة احتياطية',
       defaultPath: `maktoob-backup-${new Date().toISOString().slice(0, 10)}.sqlite`,
@@ -67,6 +76,7 @@ export function registerIpc(database: MaktoobDatabase) {
   });
 
   ipcMain.handle('backup:restore', async () => {
+    licenseManager.requireActive();
     const selection = await dialog.showOpenDialog({ title: 'استعادة نسخة احتياطية', properties: ['openFile'], filters: [{ name: 'Maktoob backup', extensions: ['sqlite', 'db'] }] });
     if (selection.canceled || !selection.filePaths[0]) return { ok: false as const, message: 'تم إلغاء العملية' };
     const source = selection.filePaths[0];
@@ -91,6 +101,7 @@ export function registerIpc(database: MaktoobDatabase) {
   });
 
   ipcMain.handle('contracts:pdf', async (_event, id: number) => {
+    licenseManager.requireActive();
     const contract = database.getContract(id);
     const selection = await dialog.showSaveDialog({
       title: 'حفظ نسخة PDF',

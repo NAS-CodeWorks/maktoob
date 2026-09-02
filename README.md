@@ -27,7 +27,7 @@ npm test
 npm run build
 ```
 
-## Implemented through 0.4
+## Implemented through 0.5
 - Atomic contract CRUD with automatic numbering.
 - Local SQLite storage for contracts, parties and payments.
 - Search and operational dashboard totals.
@@ -39,6 +39,25 @@ npm run build
 - Immutable clause snapshots stored with each contract.
 - Template clauses included in contract details and A4 PDF output.
 - Persistent office identity settings for branded PDF headers and footers.
+- Offline Ed25519 license verification bound to one device fingerprint.
+- License activation screen and signed-license import.
+- Separate key-generation and license-issuer tools; private keys are excluded from Git.
+
+## License authority
+
+Generate a key pair only in a secure directory outside the repository. Ship only the generated public key as `resources/license-public.pem`.
+
+```bash
+npm run license:keygen -- /secure/maktoob-license-authority
+```
+
+Issue a license after receiving the device ID from the activation screen:
+
+```bash
+npm run license:issue -- --private-key /secure/maktoob-license-authority/maktoob-license-private.pem --device MK-0000-0000-0000-0000-0000-0000 --customer "Office name" --out customer.license.json
+```
+
+Never commit, upload, email, or bundle `maktoob-license-private.pem` with the application.
 
 ## Windows package
 ```bash
