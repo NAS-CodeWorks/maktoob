@@ -8,6 +8,25 @@ export type PartyInput = {
   address: string;
 };
 
+export type PropertyDetails = {
+  propertyType: string;
+  plotNumber: string;
+  districtNumber: string;
+  area: string;
+  governorate: string;
+  cityDistrict: string;
+  locationNotes: string;
+};
+
+export type VehicleDetails = {
+  make: string;
+  model: string;
+  year: string;
+  color: string;
+  chassisNumber: string;
+  plateNumber: string;
+};
+
 export type ContractInput = {
   type: string;
   contractDate: string;
@@ -16,6 +35,8 @@ export type ContractInput = {
   currency: Currency;
   notes: string;
   templateId: number | null;
+  propertyDetails?: PropertyDetails | null;
+  vehicleDetails?: VehicleDetails | null;
   firstParty: PartyInput;
   secondParty: PartyInput;
 };
@@ -68,6 +89,8 @@ export type Contract = {
   templateId: number | null;
   templateName: string;
   clauses: string[];
+  propertyDetails: PropertyDetails | null;
+  vehicleDetails: VehicleDetails | null;
   firstParty: Party;
   secondParty: Party;
   paidAmount: number;
@@ -155,6 +178,7 @@ export type MaktoobAPI = {
   addPayment: (input: PaymentInput) => Promise<Payment>;
   deletePayment: (id: number) => Promise<void>;
   exportContractPdf: (id: number) => Promise<OperationResult>;
+  printContract: (id: number) => Promise<OperationResult>;
   createBackup: () => Promise<OperationResult>;
   restoreBackup: () => Promise<OperationResult>;
 };

@@ -23,6 +23,7 @@ const api: MaktoobAPI = {
   addPayment: (input: PaymentInput) => ipcRenderer.invoke('payments:add', input),
   deletePayment: (id: number) => ipcRenderer.invoke('payments:delete', id),
   exportContractPdf: (id: number) => ipcRenderer.invoke('contracts:pdf', id),
+  printContract: (id: number) => ipcRenderer.invoke('contracts:print', id),
   createBackup: () => ipcRenderer.invoke('backup:create'),
   restoreBackup: () => ipcRenderer.invoke('backup:restore'),
 };

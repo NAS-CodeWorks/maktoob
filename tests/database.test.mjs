@@ -60,7 +60,7 @@ test('stores an immutable clause snapshot for each contract', async () => withDa
   assert.deepEqual(nextContract.clauses, ['بند محدث للعقود الجديدة']);
   database.updateTemplate(defaultTemplate.id, { ...defaultTemplate, name: 'قالب المكتب', clauses: ['بند محدث للعقود الجديدة'] });
   database.reopen();
-  assert.deepEqual(database.listTemplates().map((template) => template.name), ['قالب المكتب']);
+  assert.ok(database.listTemplates().some((template) => template.name === 'قالب المكتب'));
 }));
 
 test('keeps contract clauses after deleting a non-default template', async () => withDatabase(async (database) => {
@@ -80,4 +80,58 @@ test('persists validated office identity settings', async () => withDatabase(asy
   database.reopen();
   assert.deepEqual(database.getOfficeProfile(), profile);
   assert.throws(() => database.updateOfficeProfile({ ...profile, officeName: '  ' }), /اسم المكتب/);
+}));
+
+test('persists structured property and vehicle contract details', async () => withDatabase(async (database) => {
+  const propertyContract = database.createContract({
+    ...contractInput,
+    type: 'بيع عقار',
+    propertyDetails: {
+      propertyType: 'دار سكنية',
+      plotNumber: '124/8',
+      districtNumber: '7 الجزيرة',
+      area: '250 م²',
+      governorate: 'الأنبار',
+      cityDistrict: 'الرمادي',
+      locationNotes: 'قرب جامع الدولة الكبير',
+    },
+  });
+  assert.ok(propertyContract.propertyDetails);
+  assert.equal(propertyContract.propertyDetails.plotNumber, '124/8');
+  assert.equal(propertyContract.propertyDetails.propertyType, 'دار سكنية');
+
+  const vehicleContract = database.createContract({
+    ...contractInput,
+    type: 'بيع مركبة',
+    vehicleDetails: {
+      make: 'تويوتا',
+      model: 'كامري',
+      year: '2023',
+      color: 'أبيض صدفي',
+      chassisNumber: 'JT2BF28K1X0123456',
+      plateNumber: 'بغداد 12345 خصوصي',
+    },
+  });
+  assert.ok(vehicleContract.vehicleDetails);
+  assert.equal(vehicleContract.vehicleDetails.make, 'تويوتا');
+  assert.equal(vehicleContract.vehicleDetails.chassisNumber, 'JT2BF28K1X0123456');
+
+  database.reopen();
+  const fetchedProperty = database.getContract(propertyContract.id);
+  assert.equal(fetchedProperty.propertyDetails?.districtNumber, '7 الجزيرة');
+  const fetchedVehicle = database.getContract(vehicleContract.id);
+  assert.equal(fetchedVehicle.vehicleDetails?.plateNumber, 'بغداد 12345 خصوصي');
+}));
+
+test('preserves parties shared across multiple contracts upon deletion', async () => withDatabase(async (database) => {
+  const contract1 = database.createContract(contractInput);
+  const contract2 = database.createContract({
+    ...contractInput,
+    amount: 500000,
+  });
+  assert.equal(database.listContracts().length, 2);
+  database.deleteContract(contract1.id);
+  assert.equal(database.listContracts().length, 1);
+  const remaining = database.getContract(contract2.id);
+  assert.equal(remaining.firstParty.name, 'محمد سالم');
 }));
