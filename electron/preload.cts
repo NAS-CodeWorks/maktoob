@@ -3,7 +3,7 @@ import type { ContractInput, ContractTemplateInput, MaktoobAPI, OfficeProfile, P
 
 const api: MaktoobAPI = {
   platform: process.platform,
-  version: '0.5.0',
+  version: '1.0.0',
   getLicenseState: () => ipcRenderer.invoke('license:status'),
   importLicense: () => ipcRenderer.invoke('license:import'),
   dashboard: () => ipcRenderer.invoke('dashboard:get'),

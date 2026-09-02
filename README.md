@@ -55,7 +55,7 @@ npm run build
 # Package into unpacked directory
 npm run package:dir
 
-# Build production NSIS installer (Maktoob-0.5.0-x64.exe)
+# Build production NSIS installer (Maktoob-1.0.0-x64.exe)
 npm run package:win
 ```
 
