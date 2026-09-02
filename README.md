@@ -59,18 +59,24 @@ npm run package:dir
 npm run package:win
 ```
 
-## License Authority & Security
+## License Authority & Production Rules
 
-Generate a cryptographic Ed25519 key pair only in a secure directory outside the repository. Ship only the generated public key as `resources/license-public.pem`.
+- **Cryptographic Engine**: Maktoob licenses use Ed25519 digital signatures.
+- **Public Key**: `resources/license-public.pem` is the only bundled authority key and is safe for public distribution.
+- **Private Key Authority**: The matching private key (`maktoob-license-private.pem`) must remain strictly outside the repository in a secure directory (e.g., `%USERPROFILE%\Documents\NAS CodeWorks Secure\Maktoob License Authority`).
+- **Single Authority**: The private key is the root licensing authority for all issued installations.
+- **Key Recovery & Rotation**:
+  - Losing the private key permanently prevents issuing new licenses compatible with the current public key.
+  - Rotating the signing key requires rebuilding and redistributing Maktoob with the newly matching public key.
+- **Absolute Invariant**: Never commit, upload, email, package, or distribute private signing material.
 
+### Key Generation
 ```bash
-npm run license:keygen -- /secure/maktoob-license-authority
+npm run license:keygen -- "C:\Users\<user>\Documents\NAS CodeWorks Secure\Maktoob License Authority"
 ```
 
+### Issuing a Customer License
 Issue a device-bound license after receiving the hardware fingerprint from the office activation screen:
-
 ```bash
-npm run license:issue -- --private-key /secure/maktoob-license-authority/maktoob-license-private.pem --device MK-0000-0000-0000-0000-0000-0000 --customer "اسم المكتب" --out customer.license.json
+npm run license:issue -- --private-key "C:\Users\<user>\Documents\NAS CodeWorks Secure\Maktoob License Authority\maktoob-license-private.pem" --device MK-0000-0000-0000-0000-0000-0000 --customer "اسم المكتب" --out customer.license.json
 ```
-
-**Security Invariant**: Never commit, upload, email, or bundle `maktoob-license-private.pem` with the application. Only the public key (`resources/license-public.pem`) is distributed.
