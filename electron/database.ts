@@ -3,6 +3,8 @@ import type {
   Contract,
   ContractInput,
   ContractListItem,
+  ContractTemplate,
+  ContractTemplateInput,
   Currency,
   DashboardSummary,
   PartyInput,
@@ -21,6 +23,9 @@ type ContractRow = {
   amount: number;
   currency: Currency;
   notes: string;
+  template_id: number | null;
+  template_name_snapshot: string;
+  clauses_snapshot: string;
   first_party_id: number;
   second_party_id: number;
   first_party_name: string;
@@ -33,6 +38,17 @@ type ContractRow = {
   second_party_address: string;
   paid_amount: number;
   payments_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type TemplateRow = {
+  id: number;
+  name: string;
+  description: string;
+  clauses_json: string;
+  is_default: number;
+  contracts_count: number;
   created_at: string;
   updated_at: string;
 };
@@ -73,6 +89,7 @@ function validateContract(input: ContractInput): ContractInput {
   if (!['IQD', 'USD'].includes(input.currency)) throw new Error('العملة غير صالحة');
   if (!Number.isFinite(input.amount) || input.amount < 0) throw new Error('قيمة العقد غير صالحة');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.contractDate)) throw new Error('تاريخ العقد غير صالح');
+  if (input.templateId !== null && (!Number.isInteger(input.templateId) || input.templateId <= 0)) throw new Error('قالب العقد غير صالح');
   return {
     type: cleanText(input.type, 'نوع العقد', true),
     contractDate: input.contractDate,
@@ -80,9 +97,33 @@ function validateContract(input: ContractInput): ContractInput {
     amount: Math.round(input.amount * 100) / 100,
     currency: input.currency,
     notes: cleanText(input.notes, 'الملاحظات'),
+    templateId: input.templateId,
     firstParty: validateParty(input.firstParty, 'الطرف الأول'),
     secondParty: validateParty(input.secondParty, 'الطرف الثاني'),
   };
+}
+
+function validateTemplate(input: ContractTemplateInput): ContractTemplateInput {
+  if (!input || typeof input !== 'object') throw new Error('بيانات القالب غير صالحة');
+  if (!Array.isArray(input.clauses)) throw new Error('بنود القالب غير صالحة');
+  const clauses = input.clauses.map((clause, index) => cleanText(clause, `البند ${index + 1}`, true));
+  if (!clauses.length) throw new Error('يجب إضافة بند واحد على الأقل');
+  if (clauses.length > 40) throw new Error('الحد الأعلى هو 40 بنداً');
+  return {
+    name: cleanText(input.name, 'اسم القالب', true),
+    description: cleanText(input.description, 'وصف القالب'),
+    clauses,
+    isDefault: Boolean(input.isDefault),
+  };
+}
+
+function parseClauses(value: string) {
+  try {
+    const clauses = JSON.parse(value);
+    return Array.isArray(clauses) ? clauses.filter((clause): clause is string => typeof clause === 'string') : [];
+  } catch {
+    return [];
+  }
 }
 
 function validatePayment(input: PaymentInput): PaymentInput {
@@ -153,11 +194,35 @@ export class MaktoobDatabase {
         note TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS contract_templates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        description TEXT NOT NULL DEFAULT '',
+        clauses_json TEXT NOT NULL,
+        is_default INTEGER NOT NULL DEFAULT 0 CHECK(is_default IN (0, 1)),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
       CREATE INDEX IF NOT EXISTS idx_contracts_date ON contracts(contract_date DESC);
       CREATE INDEX IF NOT EXISTS idx_contracts_number ON contracts(contract_number);
       CREATE INDEX IF NOT EXISTS idx_parties_name ON parties(name);
       CREATE INDEX IF NOT EXISTS idx_payments_contract ON payments(contract_id);
       INSERT OR IGNORE INTO schema_migrations(version) VALUES (1);
+    `);
+    const contractColumns = this.db.prepare('PRAGMA table_info(contracts)').all() as Array<{ name: string }>;
+    if (!contractColumns.some((column) => column.name === 'template_id')) this.db.exec('ALTER TABLE contracts ADD COLUMN template_id INTEGER REFERENCES contract_templates(id) ON DELETE SET NULL');
+    if (!contractColumns.some((column) => column.name === 'template_name_snapshot')) this.db.exec("ALTER TABLE contracts ADD COLUMN template_name_snapshot TEXT NOT NULL DEFAULT ''");
+    if (!contractColumns.some((column) => column.name === 'clauses_snapshot')) this.db.exec("ALTER TABLE contracts ADD COLUMN clauses_snapshot TEXT NOT NULL DEFAULT '[]'");
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_contracts_template ON contracts(template_id);
+      INSERT INTO contract_templates(name, description, clauses_json, is_default)
+      SELECT
+        'القالب العام',
+        'هيكل أولي قابل للتعديل، ويجب مراجعته قانونياً قبل الاعتماد.',
+        '["أقر الطرفان بأهليتهما القانونية للتعاقد وبصحة البيانات المثبتة في هذا العقد.","اتفق الطرفان على موضوع العقد وقيمته وطريقة الوفاء المبينة في السجل.","يُعد توقيع الطرفين إقراراً بقراءة البنود وفهمها والموافقة عليها."]',
+        1
+      WHERE NOT EXISTS (SELECT 1 FROM contract_templates);
+      INSERT OR IGNORE INTO schema_migrations(version) VALUES (2);
     `);
   }
 
@@ -215,6 +280,9 @@ export class MaktoobDatabase {
       amount: row.amount,
       currency: row.currency,
       notes: row.notes,
+      templateId: row.template_id,
+      templateName: row.template_name_snapshot,
+      clauses: parseClauses(row.clauses_snapshot),
       firstParty: { id: row.first_party_id, name: row.first_party_name, phone: row.first_party_phone, identifier: row.first_party_identifier, address: row.first_party_address },
       secondParty: { id: row.second_party_id, name: row.second_party_name, phone: row.second_party_phone, identifier: row.second_party_identifier, address: row.second_party_address },
       paidAmount: row.paid_amount,
@@ -244,12 +312,13 @@ export class MaktoobDatabase {
   createContract(raw: ContractInput): Contract {
     const input = validateContract(raw);
     const id = this.db.transaction(() => {
+      const template = input.templateId ? this.getTemplate(input.templateId) : null;
       const firstPartyId = this.insertParty(input.firstParty);
       const secondPartyId = this.insertParty(input.secondParty);
       const result = this.db.prepare(`INSERT INTO contracts
-        (contract_number, type, contract_date, status, amount, currency, notes, first_party_id, second_party_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(this.nextContractNumber(), input.type, input.contractDate, input.status, input.amount, input.currency, input.notes, firstPartyId, secondPartyId);
+        (contract_number, type, contract_date, status, amount, currency, notes, template_id, template_name_snapshot, clauses_snapshot, first_party_id, second_party_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(this.nextContractNumber(), input.type, input.contractDate, input.status, input.amount, input.currency, input.notes, template?.id ?? null, template?.name ?? '', JSON.stringify(template?.clauses ?? []), firstPartyId, secondPartyId);
       return Number(result.lastInsertRowid);
     })();
     return this.getContract(id);
@@ -260,13 +329,76 @@ export class MaktoobDatabase {
     const current = this.getContract(id);
     if (input.amount < current.paidAmount) throw new Error('لا يمكن جعل قيمة العقد أقل من مجموع الدفعات المسجلة');
     this.db.transaction(() => {
+      const templateChanged = input.templateId !== current.templateId;
+      const template = templateChanged && input.templateId ? this.getTemplate(input.templateId) : null;
       const updateParty = this.db.prepare('UPDATE parties SET name=?, phone=?, identifier=?, address=?, updated_at=CURRENT_TIMESTAMP WHERE id=?');
       updateParty.run(input.firstParty.name, input.firstParty.phone, input.firstParty.identifier, input.firstParty.address, current.firstParty.id);
       updateParty.run(input.secondParty.name, input.secondParty.phone, input.secondParty.identifier, input.secondParty.address, current.secondParty.id);
-      this.db.prepare(`UPDATE contracts SET type=?, contract_date=?, status=?, amount=?, currency=?, notes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
-        .run(input.type, input.contractDate, input.status, input.amount, input.currency, input.notes, id);
+      this.db.prepare(`UPDATE contracts SET type=?, contract_date=?, status=?, amount=?, currency=?, notes=?,
+        template_id=?, template_name_snapshot=?, clauses_snapshot=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+        .run(input.type, input.contractDate, input.status, input.amount, input.currency, input.notes,
+          input.templateId, templateChanged ? template?.name ?? '' : current.templateName,
+          templateChanged ? JSON.stringify(template?.clauses ?? []) : JSON.stringify(current.clauses), id);
     })();
     return this.getContract(id);
+  }
+
+  private mapTemplate(row: TemplateRow): ContractTemplate {
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      clauses: parseClauses(row.clauses_json),
+      isDefault: Boolean(row.is_default),
+      contractsCount: Number(row.contracts_count),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  listTemplates(query = ''): ContractTemplate[] {
+    const value = `%${query.trim()}%`;
+    const rows = this.db.prepare(`SELECT t.*, COUNT(c.id) AS contracts_count
+      FROM contract_templates t LEFT JOIN contracts c ON c.template_id=t.id
+      WHERE (?='%%' OR t.name LIKE ? OR t.description LIKE ?)
+      GROUP BY t.id ORDER BY t.is_default DESC, t.name`).all(value, value, value) as TemplateRow[];
+    return rows.map((row) => this.mapTemplate(row));
+  }
+
+  getTemplate(id: number): ContractTemplate {
+    if (!Number.isInteger(id) || id <= 0) throw new Error('رقم القالب غير صالح');
+    const row = this.db.prepare(`SELECT t.*, COUNT(c.id) AS contracts_count
+      FROM contract_templates t LEFT JOIN contracts c ON c.template_id=t.id WHERE t.id=? GROUP BY t.id`).get(id) as TemplateRow | undefined;
+    if (!row) throw new Error('قالب العقد غير موجود');
+    return this.mapTemplate(row);
+  }
+
+  createTemplate(raw: ContractTemplateInput): ContractTemplate {
+    const input = validateTemplate(raw);
+    const id = this.db.transaction(() => {
+      if (input.isDefault) this.db.prepare('UPDATE contract_templates SET is_default=0').run();
+      const result = this.db.prepare('INSERT INTO contract_templates(name, description, clauses_json, is_default) VALUES (?, ?, ?, ?)')
+        .run(input.name, input.description, JSON.stringify(input.clauses), input.isDefault ? 1 : 0);
+      return Number(result.lastInsertRowid);
+    })();
+    return this.getTemplate(id);
+  }
+
+  updateTemplate(id: number, raw: ContractTemplateInput): ContractTemplate {
+    const input = validateTemplate(raw);
+    this.getTemplate(id);
+    this.db.transaction(() => {
+      if (input.isDefault) this.db.prepare('UPDATE contract_templates SET is_default=0 WHERE id<>?').run(id);
+      this.db.prepare(`UPDATE contract_templates SET name=?, description=?, clauses_json=?, is_default=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+        .run(input.name, input.description, JSON.stringify(input.clauses), input.isDefault ? 1 : 0, id);
+    })();
+    return this.getTemplate(id);
+  }
+
+  deleteTemplate(id: number) {
+    const template = this.getTemplate(id);
+    if (template.isDefault) throw new Error('لا يمكن حذف القالب الافتراضي؛ عيّن قالباً آخر كافتراضي أولاً');
+    this.db.prepare('DELETE FROM contract_templates WHERE id=?').run(id);
   }
 
   deleteContract(id: number) {
