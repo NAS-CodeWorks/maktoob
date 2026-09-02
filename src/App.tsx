@@ -1,134 +1,545 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { useForm } from 'react-hook-form';
-import type { Contract, ContractInput, ContractListItem, ContractStatus, ContractTemplate, ContractTemplateInput, DashboardSummary, LicenseState, OfficeProfile, PartySummary, PaymentInput, PaymentListItem } from '../shared/domain';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type {
+  Contract,
+  ContractListItem,
+  ContractTemplate,
+  DashboardSummary,
+  LicenseState,
+  OfficeProfile,
+  PartySummary,
+  PaymentListItem,
+} from '../shared/domain';
 import './templates.css';
+import { ActivationScreen } from './components/ActivationScreen';
+import { ContractDetails } from './components/ContractDetails';
+import { ContractForm } from './components/ContractForm';
+import { ContractsTable } from './components/ContractsTable';
+import { OfficeSettings } from './components/OfficeSettings';
+import { TemplateForm } from './components/TemplateForm';
 
 type View = 'dashboard' | 'contracts' | 'templates' | 'parties' | 'payments' | 'backup' | 'settings';
-const statusLabels: Record<ContractStatus, string> = { draft: 'مسودة', completed: 'مكتمل', pending_payment: 'بانتظار الدفع' };
+
 const navItems: Array<{ id: View; label: string; icon: string }> = [
-  { id: 'dashboard', label: 'نظرة عامة', icon: '⌂' }, { id: 'contracts', label: 'العقود', icon: '▤' },
-  { id: 'templates', label: 'قوالب العقود', icon: '◇' }, { id: 'parties', label: 'الأطراف', icon: '◎' }, { id: 'payments', label: 'الدفعات', icon: '◫' },
+  { id: 'dashboard', label: 'نظرة عامة', icon: '⌂' },
+  { id: 'contracts', label: 'العقود', icon: '▤' },
+  { id: 'templates', label: 'قوالب العقود', icon: '◇' },
+  { id: 'parties', label: 'الأطراف', icon: '◎' },
+  { id: 'payments', label: 'الدفعات', icon: '◫' },
   { id: 'backup', label: 'النسخ الاحتياطي', icon: '↻' },
   { id: 'settings', label: 'إعدادات المكتب', icon: '⚙' },
 ];
-const today = () => new Date().toISOString().slice(0, 10);
-const contractDefaults = (defaultTemplateId: number | null = null): ContractInput => ({ type: 'بيع عام', contractDate: today(), status: 'draft', amount: 0, currency: 'IQD', notes: '', templateId: defaultTemplateId, firstParty: { name: '', phone: '', identifier: '', address: '' }, secondParty: { name: '', phone: '', identifier: '', address: '' } });
-const formatMoney = (value: number, currency: 'IQD' | 'USD' = 'IQD') => `${new Intl.NumberFormat(currency === 'IQD' ? 'ar-IQ' : 'en-US', { maximumFractionDigits: currency === 'IQD' ? 0 : 2 }).format(value)} ${currency === 'IQD' ? 'د.ع' : '$'}`;
-const messageFrom = (error: unknown) => (error instanceof Error ? error.message : String(error)).replace(/^Error invoking remote method '[^']+': Error: /, '');
 
-function StatusBadge({ status }: { status: ContractStatus }) { return <span className={`status status-${status}`}>{statusLabels[status]}</span>; }
+const formatMoney = (value: number, currency: 'IQD' | 'USD' = 'IQD') =>
+  `${new Intl.NumberFormat(currency === 'IQD' ? 'ar-IQ' : 'en-US', { maximumFractionDigits: currency === 'IQD' ? 0 : 2 }).format(value)} ${currency === 'IQD' ? 'د.ع' : '$'}`;
 
-function ContractForm({ contract, templates, onClose, onSaved }: { contract: Contract | null; templates: ContractTemplate[]; onClose: () => void; onSaved: () => void }) {
-  const defaultTemplateId = templates.find((template) => template.isDefault)?.id ?? null;
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<ContractInput>({ defaultValues: contract ? { type: contract.type, contractDate: contract.contractDate, status: contract.status, amount: contract.amount, currency: contract.currency, notes: contract.notes, templateId: contract.templateId, firstParty: { name: contract.firstParty.name, phone: contract.firstParty.phone, identifier: contract.firstParty.identifier, address: contract.firstParty.address }, secondParty: { name: contract.secondParty.name, phone: contract.secondParty.phone, identifier: contract.secondParty.identifier, address: contract.secondParty.address } } : contractDefaults(defaultTemplateId) });
-  const [error, setError] = useState('');
-  const submit = async (input: ContractInput) => { setError(''); try { if (contract) await window.maktoob.updateContract(contract.id, input); else await window.maktoob.createContract(input); onSaved(); } catch (caught) { setError(messageFrom(caught)); } };
-  return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal contract-modal" role="dialog" aria-modal="true">
-    <header className="modal-head"><div><span className="eyebrow">{contract?.contractNumber ?? 'سجل جديد'}</span><h2>{contract ? 'تعديل بيانات العقد' : 'إنشاء عقد جديد'}</h2></div><button className="icon-button" onClick={onClose}>×</button></header>
-    <form onSubmit={handleSubmit(submit)}><div className="form-grid contract-basics">
-      <label><span>نوع العقد</span><select {...register('type', { required: true })}><option>بيع عام</option><option>بيع عقار</option><option>بيع مركبة</option><option>إيجار</option><option>تعهد</option><option>مخالصة</option></select>{errors.type && <small>مطلوب</small>}</label>
-      <label><span>تاريخ العقد</span><input type="date" {...register('contractDate', { required: true })} /></label>
-      <label><span>الحالة</span><select {...register('status')}><option value="draft">مسودة</option><option value="pending_payment">بانتظار الدفع</option><option value="completed">مكتمل</option></select></label>
-      <label><span>قيمة العقد</span><div className="money-input"><input type="number" min="0" step="0.01" {...register('amount', { valueAsNumber: true, min: 0 })} /><select {...register('currency')}><option value="IQD">د.ع</option><option value="USD">USD</option></select></div></label>
-      <label><span>قالب البنود</span><select {...register('templateId', { setValueAs: (value) => value ? Number(value) : null })}><option value="">بدون قالب</option>{templates.map((template) => <option key={template.id} value={template.id}>{template.name}{template.isDefault ? ' — افتراضي' : ''}</option>)}</select></label>
-    </div><div className="party-columns">{(['firstParty', 'secondParty'] as const).map((side, index) => <fieldset key={side}><legend>الطرف {index === 0 ? 'الأول' : 'الثاني'}</legend><div className="form-grid">
-      <label className="wide"><span>الاسم الكامل *</span><input {...register(`${side}.name`, { required: true })} />{errors[side]?.name && <small>اسم الطرف مطلوب</small>}</label><label><span>رقم الهاتف</span><input inputMode="tel" {...register(`${side}.phone`)} /></label><label><span>رقم الهوية</span><input {...register(`${side}.identifier`)} /></label><label className="wide"><span>العنوان</span><input {...register(`${side}.address`)} /></label>
-    </div></fieldset>)}</div><label className="notes-field"><span>ملاحظات العقد</span><textarea rows={3} {...register('notes')} /></label>{error && <div className="form-error">{error}</div>}<footer className="modal-actions"><button type="button" className="secondary" onClick={onClose}>إلغاء</button><button className="primary" disabled={isSubmitting}>{isSubmitting ? 'جارٍ الحفظ…' : contract ? 'حفظ التعديلات' : 'إنشاء العقد'}</button></footer></form>
-  </section></div>;
-}
-
-function TemplateForm({ template, onClose, onSaved }: { template: ContractTemplate | null; onClose: () => void; onSaved: () => void }) {
-  const [name, setName] = useState(template?.name ?? '');
-  const [description, setDescription] = useState(template?.description ?? '');
-  const [clausesText, setClausesText] = useState(template?.clauses.join('\n\n') ?? '');
-  const [isDefault, setIsDefault] = useState(template?.isDefault ?? false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const submit = async (event: FormEvent) => {
-    event.preventDefault(); setSaving(true); setError('');
-    const input: ContractTemplateInput = { name, description, clauses: clausesText.split(/\n\s*\n/).map((clause) => clause.trim()).filter(Boolean), isDefault };
-    try { if (template) await window.maktoob.updateTemplate(template.id, input); else await window.maktoob.createTemplate(input); onSaved(); } catch (caught) { setError(messageFrom(caught)); } finally { setSaving(false); }
-  };
-  return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal template-modal" role="dialog" aria-modal="true">
-    <header className="modal-head"><div><span className="eyebrow">مكتبة البنود</span><h2>{template ? 'تعديل قالب العقد' : 'إنشاء قالب عقد'}</h2></div><button className="icon-button" onClick={onClose}>×</button></header>
-    <form onSubmit={submit}><div className="form-grid"><label><span>اسم القالب *</span><input value={name} onChange={(event) => setName(event.target.value)} required /></label><label className="wide"><span>وصف الاستخدام</span><input value={description} onChange={(event) => setDescription(event.target.value)} /></label></div>
-      <label className="notes-field"><span>بنود العقد *</span><textarea rows={12} value={clausesText} onChange={(event) => setClausesText(event.target.value)} placeholder={'اكتب كل بند في فقرة مستقلة.\n\nافصل بين البنود بسطر فارغ.'} required /></label>
-      <label className="check-field"><input type="checkbox" checked={isDefault} onChange={(event) => setIsDefault(event.target.checked)} /><span>استخدام هذا القالب تلقائياً للعقود الجديدة</span></label>
-      <p className="legal-note">القوالب أدوات تشغيلية وليست بديلاً عن المراجعة القانونية المتخصصة.</p>{error && <div className="form-error">{error}</div>}
-      <footer className="modal-actions"><button type="button" className="secondary" onClick={onClose}>إلغاء</button><button className="primary" disabled={saving}>{saving ? 'جارٍ الحفظ…' : 'حفظ القالب'}</button></footer>
-    </form>
-  </section></div>;
-}
-
-function ContractDetails({ contract, onClose, onChanged, notify }: { contract: Contract; onClose: () => void; onChanged: () => void; notify: (value: string) => void }) {
-  const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<PaymentInput>({ defaultValues: { contractId: contract.id, amount: contract.remainingAmount, paymentDate: today(), method: 'نقدي', note: '' } });
-  const [error, setError] = useState('');
-  const addPayment = async (input: PaymentInput) => { try { await window.maktoob.addPayment({ ...input, contractId: contract.id }); reset({ contractId: contract.id, amount: Math.max(0, contract.remainingAmount - input.amount), paymentDate: today(), method: 'نقدي', note: '' }); onChanged(); notify('تم تسجيل الدفعة'); } catch (caught) { setError(messageFrom(caught)); } };
-  const exportPdf = async () => { try { const result = await window.maktoob.exportContractPdf(contract.id); if (result.ok) notify(`حُفظ ملف PDF: ${result.path}`); } catch (caught) { setError(messageFrom(caught)); } };
-  return <div className="modal-backdrop"><section className="modal details-modal" role="dialog" aria-modal="true">
-    <header className="modal-head"><div><span className="eyebrow">{contract.contractNumber}</span><h2>{contract.type}</h2></div><div className="head-actions"><button className="secondary" onClick={exportPdf}>تصدير PDF</button><button className="icon-button" onClick={onClose}>×</button></div></header>
-    <div className="detail-summary"><div><span>القيمة</span><strong>{formatMoney(contract.amount, contract.currency)}</strong></div><div><span>المستلم</span><strong>{formatMoney(contract.paidAmount, contract.currency)}</strong></div><div><span>المتبقي</span><strong>{formatMoney(contract.remainingAmount, contract.currency)}</strong></div><div><span>الحالة</span><StatusBadge status={contract.status} /></div></div>
-    <div className="party-columns compact"><article><span>الطرف الأول</span><h3>{contract.firstParty.name}</h3><p>{contract.firstParty.phone || 'لا يوجد هاتف'} · {contract.firstParty.identifier || 'لا توجد هوية'}</p><small>{contract.firstParty.address}</small></article><article><span>الطرف الثاني</span><h3>{contract.secondParty.name}</h3><p>{contract.secondParty.phone || 'لا يوجد هاتف'} · {contract.secondParty.identifier || 'لا توجد هوية'}</p><small>{contract.secondParty.address}</small></article></div>
-    {contract.clauses.length > 0 && <section className="contract-clauses"><div><span>قالب البنود</span><h3>{contract.templateName || 'بنود مخصصة'}</h3></div><ol>{contract.clauses.map((clause, index) => <li key={`${index}-${clause.slice(0, 12)}`}>{clause}</li>)}</ol></section>}
-    <section className="payments-section"><h3>سجل الدفعات</h3>{contract.payments.length ? <table><thead><tr><th>التاريخ</th><th>الطريقة</th><th>المبلغ</th><th>ملاحظة</th><th /></tr></thead><tbody>{contract.payments.map((payment) => <tr key={payment.id}><td>{payment.paymentDate}</td><td>{payment.method}</td><td>{formatMoney(payment.amount, contract.currency)}</td><td>{payment.note || '—'}</td><td><button className="text-danger" onClick={async () => { if (confirm('حذف هذه الدفعة؟')) { await window.maktoob.deletePayment(payment.id); onChanged(); } }}>حذف</button></td></tr>)}</tbody></table> : <p className="empty-inline">لا توجد دفعات مسجلة.</p>}</section>
-    {contract.remainingAmount > 0 && <form className="payment-form" onSubmit={handleSubmit(addPayment)}><input type="hidden" {...register('contractId', { valueAsNumber: true })} /><label><span>المبلغ</span><input type="number" min="0.01" max={contract.remainingAmount} step="0.01" {...register('amount', { valueAsNumber: true })} /></label><label><span>التاريخ</span><input type="date" {...register('paymentDate')} /></label><label><span>الطريقة</span><select {...register('method')}><option>نقدي</option><option>تحويل</option><option>صك</option></select></label><label className="grow"><span>ملاحظة</span><input {...register('note')} /></label><button className="primary" disabled={isSubmitting}>تسجيل دفعة</button></form>}{error && <div className="form-error">{error}</div>}
-  </section></div>;
-}
-
-function ContractsTable({ contracts, onOpen, onEdit, onDelete }: { contracts: ContractListItem[]; onOpen: (id: number) => void; onEdit: (id: number) => void; onDelete: (id: number) => void }) {
-  if (!contracts.length) return <div className="empty-state"><strong>لا توجد عقود</strong><span>أنشئ أول عقد لبدء سجل المكتب.</span></div>;
-  return <div className="table-wrap"><table><thead><tr><th>رقم العقد</th><th>النوع</th><th>الطرف الأول</th><th>الطرف الثاني</th><th>القيمة</th><th>المتبقي</th><th>التاريخ</th><th>الحالة</th><th /></tr></thead><tbody>{contracts.map((contract) => <tr key={contract.id}><td><button className="link-button contract-id" onClick={() => onOpen(contract.id)}>{contract.contractNumber}</button></td><td>{contract.type}</td><td>{contract.firstParty.name}</td><td>{contract.secondParty.name}</td><td>{formatMoney(contract.amount, contract.currency)}</td><td>{formatMoney(contract.remainingAmount, contract.currency)}</td><td>{contract.contractDate}</td><td><StatusBadge status={contract.status} /></td><td><div className="row-actions"><button onClick={() => onEdit(contract.id)}>تعديل</button><button className="danger" onClick={() => onDelete(contract.id)}>حذف</button></div></td></tr>)}</tbody></table></div>;
-}
-
-function OfficeSettings({ profile, onSaved }: { profile: OfficeProfile; onSaved: (profile: OfficeProfile) => void }) {
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm<OfficeProfile>({ defaultValues: profile });
-  const [error, setError] = useState('');
-  const submit = async (input: OfficeProfile) => { setError(''); try { onSaved(await window.maktoob.updateOfficeProfile(input)); } catch (caught) { setError(messageFrom(caught)); } };
-  return <section className="settings-panel"><div className="settings-intro"><span className="eyebrow">هوية المستند</span><h2>بيانات المكتب</h2><p>تظهر هذه البيانات في رأس وتذييل ملفات العقود PDF. لا تؤثر التعديلات على بيانات العقود المسجلة.</p></div><form onSubmit={handleSubmit(submit)}><div className="form-grid">
-    <label><span>اسم المكتب *</span><input {...register('officeName', { required: true })} /></label><label><span>اسم المسؤول</span><input {...register('managerName')} /></label><label><span>رقم الهاتف</span><input inputMode="tel" {...register('phone')} /></label><label><span>العنوان</span><input {...register('address')} /></label><label className="wide"><span>تذييل المستند</span><input {...register('footerNote')} /></label>
-  </div>{error && <div className="form-error">{error}</div>}<footer className="modal-actions"><button className="primary" disabled={isSubmitting}>{isSubmitting ? 'جارٍ الحفظ…' : 'حفظ إعدادات المكتب'}</button></footer></form></section>;
-}
-
-function ActivationScreen({ license, onChanged }: { license: LicenseState; onChanged: (license: LicenseState) => void }) {
-  const [working, setWorking] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const activate = async () => { setWorking(true); try { onChanged(await window.maktoob.importLicense()); } finally { setWorking(false); } };
-  const copyDeviceId = async () => { await navigator.clipboard.writeText(license.deviceId); setCopied(true); window.setTimeout(() => setCopied(false), 1800); };
-  return <main className="activation-screen"><section className="activation-card"><div className="activation-brand"><span className="brand-mark">م</span><div><strong>مكتوب</strong><small>ترخيص جهاز واحد</small></div></div><span className={`license-state license-${license.status}`}>{license.status === 'configuration_error' ? 'خطأ في نسخة التطبيق' : 'التطبيق غير مفعّل'}</span><h1>تفعيل نسخة المكتب</h1><p>{license.message}. انسخ بصمة الجهاز وأرسلها إلى جهة إصدار الترخيص، ثم استورد الملف المستلم.</p><label><span>بصمة هذا الجهاز</span><div className="device-id"><code>{license.deviceId || 'جارٍ تحديد الجهاز…'}</code><button className="secondary" onClick={copyDeviceId} disabled={!license.deviceId}>{copied ? 'تم النسخ' : 'نسخ'}</button></div></label><button className="primary activation-button" onClick={activate} disabled={working || license.status === 'configuration_error'}>{working ? 'جارٍ فحص الترخيص…' : 'اختيار ملف الترخيص'}</button><small className="activation-note">لا يحتاج التفعيل إلى اتصال بالإنترنت، ولا يغادر معرّف الجهاز هذا الحاسوب إلا عند نسخه يدوياً.</small></section></main>;
-}
+const messageFrom = (error: unknown) =>
+  (error instanceof Error ? error.message : String(error)).replace(/^Error invoking remote method '[^']+': Error: /, '');
 
 export function App() {
-  const [view, setView] = useState<View>('dashboard'); const [query, setQuery] = useState(''); const [dashboard, setDashboard] = useState<DashboardSummary | null>(null);
-  const [contracts, setContracts] = useState<ContractListItem[]>([]); const [templates, setTemplates] = useState<ContractTemplate[]>([]); const [parties, setParties] = useState<PartySummary[]>([]); const [payments, setPayments] = useState<PaymentListItem[]>([]); const [officeProfile, setOfficeProfile] = useState<OfficeProfile | null>(null);
-  const [editing, setEditing] = useState<Contract | null | 'new'>(null); const [editingTemplate, setEditingTemplate] = useState<ContractTemplate | null | 'new'>(null); const [details, setDetails] = useState<Contract | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [toast, setToast] = useState('');
+  const [view, setView] = useState<View>('dashboard');
+  const [query, setQuery] = useState('');
+  const [dashboard, setDashboard] = useState<DashboardSummary | null>(null);
+  const [contracts, setContracts] = useState<ContractListItem[]>([]);
+  const [templates, setTemplates] = useState<ContractTemplate[]>([]);
+  const [parties, setParties] = useState<PartySummary[]>([]);
+  const [payments, setPayments] = useState<PaymentListItem[]>([]);
+  const [officeProfile, setOfficeProfile] = useState<OfficeProfile | null>(null);
+
+  const [editing, setEditing] = useState<Contract | null | 'new'>(null);
+  const [editingTemplate, setEditingTemplate] = useState<ContractTemplate | null | 'new'>(null);
+  const [details, setDetails] = useState<Contract | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [toast, setToast] = useState('');
   const [license, setLicense] = useState<LicenseState | null>(null);
-  const notify = useCallback((value: string) => { setToast(value); window.setTimeout(() => setToast(''), 4000); }, []);
-  const load = useCallback(async () => { await Promise.resolve(); setLoading(true); setError(''); try { if (view === 'dashboard') { const [summary, profile] = await Promise.all([window.maktoob.dashboard(), window.maktoob.getOfficeProfile()]); setDashboard(summary); setOfficeProfile(profile); } if (view === 'contracts') setContracts(await window.maktoob.listContracts(query)); if (view === 'templates') setTemplates(await window.maktoob.listTemplates(query)); if (view === 'parties') setParties(await window.maktoob.listParties(query)); if (view === 'payments') setPayments(await window.maktoob.listPayments(query)); if (view === 'settings') setOfficeProfile(await window.maktoob.getOfficeProfile()); } catch (caught) { setError(messageFrom(caught)); } finally { setLoading(false); } }, [query, view]);
-  // License state is loaded before any protected operational request.
-  useEffect(() => { void window.maktoob.getLicenseState().then(setLicense).catch((caught) => setError(messageFrom(caught))); }, []);
-  // IPC data is synchronized only after the local license becomes active.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { if (license?.status === 'active') void load(); }, [license?.status, load]);
-  const changeView = (next: View) => { setQuery(''); setView(next); };
-  const openDetails = async (id: number) => { try { setDetails(await window.maktoob.getContract(id)); } catch (caught) { setError(messageFrom(caught)); } };
-  const refreshDetails = async () => { if (details) setDetails(await window.maktoob.getContract(details.id)); await load(); };
-  const removeContract = async (id: number) => { if (!confirm('سيُحذف العقد ودفعاته نهائياً. هل تريد المتابعة؟')) return; try { await window.maktoob.deleteContract(id); notify('تم حذف العقد'); await load(); } catch (caught) { setError(messageFrom(caught)); } };
-  const openContractForm = async () => { try { setTemplates(await window.maktoob.listTemplates()); setEditing('new'); } catch (caught) { setError(messageFrom(caught)); } };
-  const openContractEdit = async (id: number) => { try { const [contract, availableTemplates] = await Promise.all([window.maktoob.getContract(id), window.maktoob.listTemplates()]); setTemplates(availableTemplates); setEditing(contract); } catch (caught) { setError(messageFrom(caught)); } };
-  const removeTemplate = async (template: ContractTemplate) => { if (!confirm(`حذف قالب «${template.name}»؟ ستبقى نسخ البنود محفوظة داخل العقود السابقة.`)) return; try { await window.maktoob.deleteTemplate(template.id); notify('تم حذف القالب'); await load(); } catch (caught) { setError(messageFrom(caught)); } };
-  const currentTitle = navItems.find((item) => item.id === view)!.label; const arabicDate = useMemo(() => new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'full' }).format(new Date()), []);
+
+  const notify = useCallback((value: string) => {
+    setToast(value);
+    window.setTimeout(() => setToast(''), 4000);
+  }, []);
+
+  const load = useCallback(async () => {
+    await Promise.resolve();
+    setLoading(true);
+    setError('');
+    try {
+      if (view === 'dashboard') {
+        const [summary, profile, partiesList] = await Promise.all([
+          window.maktoob.dashboard(),
+          window.maktoob.getOfficeProfile(),
+          window.maktoob.listParties(),
+        ]);
+        setDashboard(summary);
+        setOfficeProfile(profile);
+        setParties(partiesList);
+      }
+      if (view === 'contracts') {
+        const [contractList, partiesList] = await Promise.all([
+          window.maktoob.listContracts(query),
+          window.maktoob.listParties(),
+        ]);
+        setContracts(contractList);
+        setParties(partiesList);
+      }
+      if (view === 'templates') setTemplates(await window.maktoob.listTemplates(query));
+      if (view === 'parties') setParties(await window.maktoob.listParties(query));
+      if (view === 'payments') setPayments(await window.maktoob.listPayments(query));
+      if (view === 'settings') setOfficeProfile(await window.maktoob.getOfficeProfile());
+    } catch (caught) {
+      setError(messageFrom(caught));
+    } finally {
+      setLoading(false);
+    }
+  }, [query, view]);
+
+  useEffect(() => {
+    void window.maktoob.getLicenseState().then(setLicense).catch((caught) => setError(messageFrom(caught)));
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (license?.status === 'active') void load();
+  }, [license?.status, load]);
+
+  const changeView = (next: View) => {
+    setQuery('');
+    setView(next);
+  };
+
+  const openDetails = async (id: number) => {
+    try {
+      setDetails(await window.maktoob.getContract(id));
+    } catch (caught) {
+      setError(messageFrom(caught));
+    }
+  };
+
+  const refreshDetails = async () => {
+    if (details) setDetails(await window.maktoob.getContract(details.id));
+    await load();
+  };
+
+  const removeContract = async (id: number) => {
+    if (!confirm('سيُحذف العقد ودفعاته نهائياً. هل تريد المتابعة؟')) return;
+    try {
+      await window.maktoob.deleteContract(id);
+      notify('تم حذف العقد');
+      await load();
+    } catch (caught) {
+      setError(messageFrom(caught));
+    }
+  };
+
+  const openContractForm = async () => {
+    try {
+      const [availableTemplates, availableParties] = await Promise.all([
+        window.maktoob.listTemplates(),
+        window.maktoob.listParties(),
+      ]);
+      setTemplates(availableTemplates);
+      setParties(availableParties);
+      setEditing('new');
+    } catch (caught) {
+      setError(messageFrom(caught));
+    }
+  };
+
+  const openContractEdit = async (id: number) => {
+    try {
+      const [contract, availableTemplates, availableParties] = await Promise.all([
+        window.maktoob.getContract(id),
+        window.maktoob.listTemplates(),
+        window.maktoob.listParties(),
+      ]);
+      setTemplates(availableTemplates);
+      setParties(availableParties);
+      setEditing(contract);
+    } catch (caught) {
+      setError(messageFrom(caught));
+    }
+  };
+
+  const removeTemplate = async (template: ContractTemplate) => {
+    if (!confirm(`حذف قالب «${template.name}»؟ ستبقى نسخ البنود محفوظة داخل العقود السابقة.`)) return;
+    try {
+      await window.maktoob.deleteTemplate(template.id);
+      notify('تم حذف القالب');
+      await load();
+    } catch (caught) {
+      setError(messageFrom(caught));
+    }
+  };
+
+  const currentTitle = navItems.find((item) => item.id === view)!.label;
+  const arabicDate = useMemo(
+    () => new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'full' }).format(new Date()),
+    []
+  );
+
   if (!license) return <div className="activation-loading">جارٍ التحقق من ترخيص مكتوب…</div>;
   if (license.status !== 'active') return <ActivationScreen license={license} onChanged={setLicense} />;
-  return <div className="app-shell"><aside className="sidebar"><div className="brand"><span className="brand-mark">م</span><div><strong>مكتوب</strong><small>من السجلات إلى الديسكتوب</small></div></div><nav>{navItems.map((item) => <button key={item.id} className={`nav-item ${view === item.id ? 'active' : ''}`} onClick={() => changeView(item.id)}><span>{item.icon}</span>{item.label}</button>)}</nav><div className="office-card"><span>نسخة المكتب</span><strong>{officeProfile?.officeName ?? 'مكتب العقود'}</strong><small>قاعدة البيانات محلية وآمنة</small></div></aside>
-    <main><header className="topbar"><div><p>{arabicDate}</p><h1>{currentTitle}</h1></div>{view === 'templates' ? <button className="primary" onClick={() => setEditingTemplate('new')}>+ قالب جديد</button> : view !== 'settings' && <button className="primary" onClick={openContractForm}>+ عقد جديد</button>}</header>{error && <div className="page-error"><strong>تعذر إكمال العملية</strong><span>{error}</span><button onClick={() => setError('')}>×</button></div>}
-      {view !== 'dashboard' && view !== 'backup' && view !== 'settings' && <div className="toolbar"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`ابحث في ${currentTitle}`} /><span>{view === 'contracts' ? contracts.length : view === 'templates' ? templates.length : view === 'parties' ? parties.length : payments.length} نتيجة</span></div>}
-      {loading ? <div className="loading">جارٍ تحميل البيانات…</div> : <>{view === 'dashboard' && dashboard && <><section className="stats"><article><span>العقود الكلية</span><strong>{dashboard.totalContracts}</strong><small>كل العقود المسجلة</small></article><article><span>عقود هذا الشهر</span><strong>{dashboard.currentMonthContracts}</strong><small>حسب تاريخ العقد</small></article><article><span>المبالغ المستلمة</span><strong>{formatMoney(dashboard.receivedIQD)}</strong><small className="positive">دفعات الدينار العراقي</small></article><article><span>المبالغ المتبقية</span><strong>{formatMoney(dashboard.pendingIQD)}</strong><small className="warning">تحتاج متابعة</small></article></section><section className="panel"><div className="panel-head"><div><h2>أحدث العقود</h2><p>آخر العمليات المسجلة في المكتب</p></div><button className="text-button" onClick={() => changeView('contracts')}>عرض جميع العقود</button></div><ContractsTable contracts={dashboard.recentContracts} onOpen={openDetails} onEdit={openContractEdit} onDelete={removeContract} /></section></>}
-        {view === 'contracts' && <section className="panel"><ContractsTable contracts={contracts} onOpen={openDetails} onEdit={openContractEdit} onDelete={removeContract} /></section>}
-        {view === 'templates' && <section className="template-grid">{templates.map((template) => <article key={template.id} className="template-card"><header><div><span>{template.isDefault ? 'القالب الافتراضي' : 'قالب محفوظ'}</span><h2>{template.name}</h2></div><strong>{template.clauses.length} بنود</strong></header><p>{template.description || 'لا يوجد وصف لهذا القالب.'}</p><dl><div><dt>العقود المرتبطة</dt><dd>{template.contractsCount}</dd></div><div><dt>آخر تحديث</dt><dd>{template.updatedAt.slice(0, 10)}</dd></div></dl><footer><button className="secondary" onClick={() => setEditingTemplate(template)}>تعديل القالب</button><button className="text-danger" disabled={template.isDefault} onClick={() => removeTemplate(template)}>حذف</button></footer></article>)}</section>}
-        {view === 'parties' && <section className="panel"><div className="table-wrap"><table><thead><tr><th>الاسم</th><th>الهاتف</th><th>رقم الهوية</th><th>العنوان</th><th>عدد العقود</th><th>إجمالي د.ع</th><th>إجمالي $</th></tr></thead><tbody>{parties.map((party) => <tr key={party.id}><td><strong>{party.name}</strong></td><td>{party.phone || '—'}</td><td>{party.identifier || '—'}</td><td>{party.address || '—'}</td><td>{party.contractsCount}</td><td>{formatMoney(party.totalValueIQD)}</td><td>{formatMoney(party.totalValueUSD, 'USD')}</td></tr>)}</tbody></table>{!parties.length && <div className="empty-state"><strong>لا توجد أطراف</strong><span>تُضاف الأطراف تلقائياً مع العقود.</span></div>}</div></section>}
-        {view === 'payments' && <section className="panel"><div className="table-wrap"><table><thead><tr><th>العقد</th><th>النوع</th><th>التاريخ</th><th>الطريقة</th><th>المبلغ</th><th>ملاحظة</th></tr></thead><tbody>{payments.map((payment) => <tr key={payment.id}><td><button className="link-button contract-id" onClick={() => openDetails(payment.contractId)}>{payment.contractNumber}</button></td><td>{payment.contractType}</td><td>{payment.paymentDate}</td><td>{payment.method}</td><td>{formatMoney(payment.amount, payment.currency)}</td><td>{payment.note || '—'}</td></tr>)}</tbody></table>{!payments.length && <div className="empty-state"><strong>لا توجد دفعات</strong><span>يمكن تسجيل الدفعة من تفاصيل العقد.</span></div>}</div></section>}
-        {view === 'backup' && <section className="backup-grid"><article><div className="feature-icon">↓</div><h2>إنشاء نسخة احتياطية</h2><p>يحفظ نسخة كاملة من العقود والأطراف والدفعات في ملف مستقل يمكن نقله إلى وسيط خارجي.</p><button className="primary" onClick={async () => { try { const result = await window.maktoob.createBackup(); if (result.ok) notify(`تم حفظ النسخة: ${result.path}`); } catch (caught) { setError(messageFrom(caught)); } }}>حفظ نسخة الآن</button></article><article><div className="feature-icon">↑</div><h2>استعادة نسخة</h2><p>يفحص ملف النسخة أولاً، ثم يستبدل قاعدة البيانات الحالية بعد التأكد من صلاحيته.</p><button className="secondary" onClick={async () => { if (!confirm('ستُستبدل البيانات الحالية بمحتوى النسخة. هل تريد المتابعة؟')) return; try { const result = await window.maktoob.restoreBackup(); if (result.ok) { notify('تمت استعادة النسخة'); changeView('dashboard'); } else if (result.message !== 'تم إلغاء العملية') setError(result.message); } catch (caught) { setError(messageFrom(caught)); } }}>اختيار نسخة للاستعادة</button></article></section>}
-        {view === 'settings' && officeProfile && <OfficeSettings profile={officeProfile} onSaved={(profile) => { setOfficeProfile(profile); notify('تم حفظ إعدادات المكتب'); }} />}</>}
-    </main>{editing && <ContractForm contract={editing === 'new' ? null : editing} templates={templates} onClose={() => setEditing(null)} onSaved={async () => { const created = editing === 'new'; setEditing(null); notify(created ? 'تم إنشاء العقد' : 'تم تحديث العقد'); await load(); }} />}{editingTemplate && <TemplateForm template={editingTemplate === 'new' ? null : editingTemplate} onClose={() => setEditingTemplate(null)} onSaved={async () => { const created = editingTemplate === 'new'; setEditingTemplate(null); notify(created ? 'تم إنشاء القالب' : 'تم تحديث القالب'); await load(); }} />}{details && <ContractDetails contract={details} onClose={() => setDetails(null)} onChanged={refreshDetails} notify={notify} />}{toast && <div className="toast">{toast}</div>}
-  </div>;
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <span className="brand-mark">م</span>
+          <div>
+            <strong>مكتوب</strong>
+            <small>من السجلات إلى الديسكتوب</small>
+          </div>
+        </div>
+        <nav>
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              className={`nav-item ${view === item.id ? 'active' : ''}`}
+              onClick={() => changeView(item.id)}
+            >
+              <span>{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <div className="office-card">
+          <span>نسخة المكتب</span>
+          <strong>{officeProfile?.officeName ?? 'مكتب العقود'}</strong>
+          <small>قاعدة البيانات محلية وآمنة</small>
+        </div>
+      </aside>
+
+      <main>
+        <header className="topbar">
+          <div>
+            <p>{arabicDate}</p>
+            <h1>{currentTitle}</h1>
+          </div>
+          {view === 'templates' ? (
+            <button className="primary" onClick={() => setEditingTemplate('new')}>
+              + قالب جديد
+            </button>
+          ) : (
+            view !== 'settings' && (
+              <button className="primary" onClick={openContractForm}>
+                + عقد جديد
+              </button>
+            )
+          )}
+        </header>
+
+        {error && (
+          <div className="page-error">
+            <strong>تعذر إكمال العملية</strong>
+            <span>{error}</span>
+            <button onClick={() => setError('')}>×</button>
+          </div>
+        )}
+
+        {view !== 'dashboard' && view !== 'backup' && view !== 'settings' && (
+          <div className="toolbar">
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={`ابحث في ${currentTitle}`}
+            />
+            <span>
+              {view === 'contracts'
+                ? contracts.length
+                : view === 'templates'
+                  ? templates.length
+                  : view === 'parties'
+                    ? parties.length
+                    : payments.length}{' '}
+              نتيجة
+            </span>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="loading">جارٍ تحميل البيانات…</div>
+        ) : (
+          <>
+            {view === 'dashboard' && dashboard && (
+              <>
+                <section className="stats">
+                  <article>
+                    <span>العقود الكلية</span>
+                    <strong>{dashboard.totalContracts}</strong>
+                    <small>كل العقود المسجلة</small>
+                  </article>
+                  <article>
+                    <span>عقود هذا الشهر</span>
+                    <strong>{dashboard.currentMonthContracts}</strong>
+                    <small>حسب تاريخ العقد</small>
+                  </article>
+                  <article>
+                    <span>المبالغ المستلمة</span>
+                    <strong>{formatMoney(dashboard.receivedIQD)}</strong>
+                    <small className="positive">دفعات الدينار العراقي</small>
+                  </article>
+                  <article>
+                    <span>المبالغ المتبقية</span>
+                    <strong>{formatMoney(dashboard.pendingIQD)}</strong>
+                    <small className="warning">تحتاج متابعة</small>
+                  </article>
+                </section>
+                <section className="panel">
+                  <div className="panel-head">
+                    <div>
+                      <h2>أحدث العقود</h2>
+                      <p>آخر العمليات المسجلة في المكتب</p>
+                    </div>
+                    <button className="text-button" onClick={() => changeView('contracts')}>
+                      عرض جميع العقود
+                    </button>
+                  </div>
+                  <ContractsTable
+                    contracts={dashboard.recentContracts}
+                    onOpen={openDetails}
+                    onEdit={openContractEdit}
+                    onDelete={removeContract}
+                  />
+                </section>
+              </>
+            )}
+
+            {view === 'contracts' && (
+              <section className="panel">
+                <ContractsTable
+                  contracts={contracts}
+                  onOpen={openDetails}
+                  onEdit={openContractEdit}
+                  onDelete={removeContract}
+                />
+              </section>
+            )}
+
+            {view === 'templates' && (
+              <section className="template-grid">
+                {templates.map((template) => (
+                  <article key={template.id} className="template-card">
+                    <header>
+                      <div>
+                        <span>{template.isDefault ? 'القالب الافتراضي' : 'قالب محفوظ'}</span>
+                        <h2>{template.name}</h2>
+                      </div>
+                      <strong>{template.clauses.length} بنود</strong>
+                    </header>
+                    <p>{template.description || 'لا يوجد وصف لهذا القالب.'}</p>
+                    <dl>
+                      <div>
+                        <dt>العقود المرتبطة</dt>
+                        <dd>{template.contractsCount}</dd>
+                      </div>
+                      <div>
+                        <dt>آخر تحديث</dt>
+                        <dd>{template.updatedAt.slice(0, 10)}</dd>
+                      </div>
+                    </dl>
+                    <footer>
+                      <button className="secondary" onClick={() => setEditingTemplate(template)}>
+                        تعديل القالب
+                      </button>
+                      <button
+                        className="text-danger"
+                        disabled={template.isDefault}
+                        onClick={() => removeTemplate(template)}
+                      >
+                        حذف
+                      </button>
+                    </footer>
+                  </article>
+                ))}
+              </section>
+            )}
+
+            {view === 'parties' && (
+              <section className="panel">
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>الاسم</th>
+                        <th>الهاتف</th>
+                        <th>رقم الهوية</th>
+                        <th>العنوان</th>
+                        <th>عدد العقود</th>
+                        <th>إجمالي د.ع</th>
+                        <th>إجمالي $</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parties.map((party) => (
+                        <tr key={party.id}>
+                          <td>
+                            <strong>{party.name}</strong>
+                          </td>
+                          <td>{party.phone || '—'}</td>
+                          <td>{party.identifier || '—'}</td>
+                          <td>{party.address || '—'}</td>
+                          <td>{party.contractsCount}</td>
+                          <td>{formatMoney(party.totalValueIQD)}</td>
+                          <td>{formatMoney(party.totalValueUSD, 'USD')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {!parties.length && (
+                    <div className="empty-state">
+                      <strong>لا توجد أطراف</strong>
+                      <span>تُضاف الأطراف تلقائياً مع العقود.</span>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {view === 'payments' && (
+              <section className="panel">
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>العقد</th>
+                        <th>النوع</th>
+                        <th>التاريخ</th>
+                        <th>الطريقة</th>
+                        <th>المبلغ</th>
+                        <th>ملاحظة</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payments.map((payment) => (
+                        <tr key={payment.id}>
+                          <td>
+                            <button
+                              className="link-button contract-id"
+                              onClick={() => openDetails(payment.contractId)}
+                            >
+                              {payment.contractNumber}
+                            </button>
+                          </td>
+                          <td>{payment.contractType}</td>
+                          <td>{payment.paymentDate}</td>
+                          <td>{payment.method}</td>
+                          <td>{formatMoney(payment.amount, payment.currency)}</td>
+                          <td>{payment.note || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {!payments.length && (
+                    <div className="empty-state">
+                      <strong>لا توجد دفعات</strong>
+                      <span>يمكن تسجيل الدفعة من تفاصيل العقد.</span>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {view === 'backup' && (
+              <section className="backup-grid">
+                <article>
+                  <div className="feature-icon">↓</div>
+                  <h2>إنشاء نسخة احتياطية</h2>
+                  <p>
+                    يحفظ نسخة كاملة من العقود والأطراف والدفعات والقوالب في ملف مستقل يمكن نقله إلى وسيط خارجي.
+                  </p>
+                  <button
+                    className="primary"
+                    onClick={async () => {
+                      try {
+                        const result = await window.maktoob.createBackup();
+                        if (result.ok && result.path) notify(`تم حفظ النسخة: ${result.path}`);
+                      } catch (caught) {
+                        setError(messageFrom(caught));
+                      }
+                    }}
+                  >
+                    حفظ نسخة الآن
+                  </button>
+                </article>
+                <article>
+                  <div className="feature-icon">↑</div>
+                  <h2>استعادة نسخة</h2>
+                  <p>
+                    يفحص سلامة ملف النسخة أولاً، ثم يستبدل قاعدة البيانات الحالية بعد التأكد التام من صلاحيته.
+                  </p>
+                  <button
+                    className="secondary"
+                    onClick={async () => {
+                      if (!confirm('ستُستبدل البيانات الحالية بمحتوى النسخة. هل تريد المتابعة؟')) return;
+                      try {
+                        const result = await window.maktoob.restoreBackup();
+                        if (result.ok) {
+                          notify('تمت استعادة النسخة بنجاح');
+                          changeView('dashboard');
+                        } else if (result.message !== 'تم إلغاء العملية') {
+                          setError(result.message);
+                        }
+                      } catch (caught) {
+                        setError(messageFrom(caught));
+                      }
+                    }}
+                  >
+                    اختيار نسخة للاستعادة
+                  </button>
+                </article>
+              </section>
+            )}
+
+            {view === 'settings' && officeProfile && (
+              <OfficeSettings
+                profile={officeProfile}
+                onSaved={(profile) => {
+                  setOfficeProfile(profile);
+                  notify('تم حفظ إعدادات المكتب');
+                }}
+              />
+            )}
+          </>
+        )}
+      </main>
+
+      {editing && (
+        <ContractForm
+          contract={editing === 'new' ? null : editing}
+          templates={templates}
+          parties={parties}
+          onClose={() => setEditing(null)}
+          onSaved={async () => {
+            const created = editing === 'new';
+            setEditing(null);
+            notify(created ? 'تم إنشاء العقد بنجاح' : 'تم تحديث العقد بنجاح');
+            await load();
+          }}
+        />
+      )}
+
+      {editingTemplate && (
+        <TemplateForm
+          template={editingTemplate === 'new' ? null : editingTemplate}
+          onClose={() => setEditingTemplate(null)}
+          onSaved={async () => {
+            const created = editingTemplate === 'new';
+            setEditingTemplate(null);
+            notify(created ? 'تم إنشاء القالب بنجاح' : 'تم تحديث القالب بنجاح');
+            await load();
+          }}
+        />
+      )}
+
+      {details && (
+        <ContractDetails
+          contract={details}
+          onClose={() => setDetails(null)}
+          onChanged={refreshDetails}
+          notify={notify}
+        />
+      )}
+
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
 }

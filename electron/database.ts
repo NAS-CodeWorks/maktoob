@@ -13,6 +13,8 @@ import type {
   Payment,
   PaymentInput,
   PaymentListItem,
+  PropertyDetails,
+  VehicleDetails,
 } from '../shared/domain.js';
 
 type ContractRow = {
@@ -27,6 +29,8 @@ type ContractRow = {
   template_id: number | null;
   template_name_snapshot: string;
   clauses_snapshot: string;
+  property_details_json: string;
+  vehicle_details_json: string;
   first_party_id: number;
   second_party_id: number;
   first_party_name: string;
@@ -84,6 +88,43 @@ function validateParty(input: PartyInput, label: string): PartyInput {
   };
 }
 
+function validatePropertyDetails(input: unknown): PropertyDetails | null {
+  if (!input || typeof input !== 'object') return null;
+  const p = input as Partial<PropertyDetails>;
+  const hasContent = Boolean(
+    p.propertyType?.trim() || p.plotNumber?.trim() || p.districtNumber?.trim() ||
+    p.area?.trim() || p.governorate?.trim() || p.cityDistrict?.trim() || p.locationNotes?.trim()
+  );
+  if (!hasContent) return null;
+  return {
+    propertyType: cleanText(p.propertyType ?? '', 'نوع العقار'),
+    plotNumber: cleanText(p.plotNumber ?? '', 'رقم القطعة'),
+    districtNumber: cleanText(p.districtNumber ?? '', 'المقاطعة'),
+    area: cleanText(p.area ?? '', 'المساحة'),
+    governorate: cleanText(p.governorate ?? '', 'المحافظة'),
+    cityDistrict: cleanText(p.cityDistrict ?? '', 'القضاء / الناحية'),
+    locationNotes: cleanText(p.locationNotes ?? '', 'تفاصيل الموقع والحدود'),
+  };
+}
+
+function validateVehicleDetails(input: unknown): VehicleDetails | null {
+  if (!input || typeof input !== 'object') return null;
+  const v = input as Partial<VehicleDetails>;
+  const hasContent = Boolean(
+    v.make?.trim() || v.model?.trim() || v.year?.trim() ||
+    v.color?.trim() || v.chassisNumber?.trim() || v.plateNumber?.trim()
+  );
+  if (!hasContent) return null;
+  return {
+    make: cleanText(v.make ?? '', 'الماركة / الشركة'),
+    model: cleanText(v.model ?? '', 'الموديل / الطراز'),
+    year: cleanText(v.year ?? '', 'سنة الصنع'),
+    color: cleanText(v.color ?? '', 'اللون'),
+    chassisNumber: cleanText(v.chassisNumber ?? '', 'رقم الشاصي / الهيكل'),
+    plateNumber: cleanText(v.plateNumber ?? '', 'رقم اللوحة'),
+  };
+}
+
 function validateContract(input: ContractInput): ContractInput {
   if (!input || typeof input !== 'object') throw new Error('بيانات العقد غير صالحة');
   if (!['draft', 'completed', 'pending_payment'].includes(input.status)) throw new Error('حالة العقد غير صالحة');
@@ -99,6 +140,8 @@ function validateContract(input: ContractInput): ContractInput {
     currency: input.currency,
     notes: cleanText(input.notes, 'الملاحظات'),
     templateId: input.templateId,
+    propertyDetails: validatePropertyDetails(input.propertyDetails),
+    vehicleDetails: validateVehicleDetails(input.vehicleDetails),
     firstParty: validateParty(input.firstParty, 'الطرف الأول'),
     secondParty: validateParty(input.secondParty, 'الطرف الثاني'),
   };
@@ -138,6 +181,15 @@ function parseClauses(value: string) {
   }
 }
 
+function parseJson<T>(value: string | null | undefined, fallback: T): T {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 function validatePayment(input: PaymentInput): PaymentInput {
   if (!input || typeof input !== 'object') throw new Error('بيانات الدفعة غير صالحة');
   if (!Number.isInteger(input.contractId) || input.contractId <= 0) throw new Error('العقد غير صالح');
@@ -174,80 +226,157 @@ export class MaktoobDatabase {
         version INTEGER PRIMARY KEY,
         applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
-      CREATE TABLE IF NOT EXISTS parties (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        phone TEXT NOT NULL DEFAULT '',
-        identifier TEXT NOT NULL DEFAULT '',
-        address TEXT NOT NULL DEFAULT '',
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE TABLE IF NOT EXISTS contracts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        contract_number TEXT NOT NULL UNIQUE,
-        type TEXT NOT NULL,
-        contract_date TEXT NOT NULL,
-        status TEXT NOT NULL CHECK(status IN ('draft', 'completed', 'pending_payment')),
-        amount REAL NOT NULL CHECK(amount >= 0),
-        currency TEXT NOT NULL CHECK(currency IN ('IQD', 'USD')),
-        notes TEXT NOT NULL DEFAULT '',
-        first_party_id INTEGER NOT NULL REFERENCES parties(id),
-        second_party_id INTEGER NOT NULL REFERENCES parties(id),
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE TABLE IF NOT EXISTS payments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        contract_id INTEGER NOT NULL REFERENCES contracts(id) ON DELETE CASCADE,
-        amount REAL NOT NULL CHECK(amount > 0),
-        payment_date TEXT NOT NULL,
-        method TEXT NOT NULL,
-        note TEXT NOT NULL DEFAULT '',
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE TABLE IF NOT EXISTS contract_templates (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
-        description TEXT NOT NULL DEFAULT '',
-        clauses_json TEXT NOT NULL,
-        is_default INTEGER NOT NULL DEFAULT 0 CHECK(is_default IN (0, 1)),
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE TABLE IF NOT EXISTS office_profile (
-        id INTEGER PRIMARY KEY CHECK(id = 1),
-        office_name TEXT NOT NULL,
-        manager_name TEXT NOT NULL DEFAULT '',
-        phone TEXT NOT NULL DEFAULT '',
-        address TEXT NOT NULL DEFAULT '',
-        footer_note TEXT NOT NULL DEFAULT '',
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE INDEX IF NOT EXISTS idx_contracts_date ON contracts(contract_date DESC);
-      CREATE INDEX IF NOT EXISTS idx_contracts_number ON contracts(contract_number);
-      CREATE INDEX IF NOT EXISTS idx_parties_name ON parties(name);
-      CREATE INDEX IF NOT EXISTS idx_payments_contract ON payments(contract_id);
-      INSERT OR IGNORE INTO schema_migrations(version) VALUES (1);
     `);
-    const contractColumns = this.db.prepare('PRAGMA table_info(contracts)').all() as Array<{ name: string }>;
-    if (!contractColumns.some((column) => column.name === 'template_id')) this.db.exec('ALTER TABLE contracts ADD COLUMN template_id INTEGER REFERENCES contract_templates(id) ON DELETE SET NULL');
-    if (!contractColumns.some((column) => column.name === 'template_name_snapshot')) this.db.exec("ALTER TABLE contracts ADD COLUMN template_name_snapshot TEXT NOT NULL DEFAULT ''");
-    if (!contractColumns.some((column) => column.name === 'clauses_snapshot')) this.db.exec("ALTER TABLE contracts ADD COLUMN clauses_snapshot TEXT NOT NULL DEFAULT '[]'");
-    this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_contracts_template ON contracts(template_id);
-      INSERT INTO contract_templates(name, description, clauses_json, is_default)
-      SELECT
-        'القالب العام',
-        'هيكل أولي قابل للتعديل، ويجب مراجعته قانونياً قبل الاعتماد.',
-        '["أقر الطرفان بأهليتهما القانونية للتعاقد وبصحة البيانات المثبتة في هذا العقد.","اتفق الطرفان على موضوع العقد وقيمته وطريقة الوفاء المبينة في السجل.","يُعد توقيع الطرفين إقراراً بقراءة البنود وفهمها والموافقة عليها."]',
-        1
-      WHERE NOT EXISTS (SELECT 1 FROM contract_templates);
-      INSERT OR IGNORE INTO schema_migrations(version) VALUES (2);
-      INSERT OR IGNORE INTO office_profile(id, office_name, footer_note)
-      VALUES (1, 'مكتب العقود', 'أُنشئ بواسطة نظام مكتوب — NAS CodeWorks');
-      INSERT OR IGNORE INTO schema_migrations(version) VALUES (3);
-    `);
+
+    const appliedVersions = new Set(
+      (this.db.prepare('SELECT version FROM schema_migrations').all() as Array<{ version: number }>).map((row) => row.version)
+    );
+
+    if (!appliedVersions.has(1)) {
+      this.db.transaction(() => {
+        this.db.exec(`
+          CREATE TABLE IF NOT EXISTS parties (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            phone TEXT NOT NULL DEFAULT '',
+            identifier TEXT NOT NULL DEFAULT '',
+            address TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
+          CREATE TABLE IF NOT EXISTS contracts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contract_number TEXT NOT NULL UNIQUE,
+            type TEXT NOT NULL,
+            contract_date TEXT NOT NULL,
+            status TEXT NOT NULL CHECK(status IN ('draft', 'completed', 'pending_payment')),
+            amount REAL NOT NULL CHECK(amount >= 0),
+            currency TEXT NOT NULL CHECK(currency IN ('IQD', 'USD')),
+            notes TEXT NOT NULL DEFAULT '',
+            first_party_id INTEGER NOT NULL REFERENCES parties(id),
+            second_party_id INTEGER NOT NULL REFERENCES parties(id),
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
+          CREATE TABLE IF NOT EXISTS payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contract_id INTEGER NOT NULL REFERENCES contracts(id) ON DELETE CASCADE,
+            amount REAL NOT NULL CHECK(amount > 0),
+            payment_date TEXT NOT NULL,
+            method TEXT NOT NULL,
+            note TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
+          CREATE TABLE IF NOT EXISTS contract_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            description TEXT NOT NULL DEFAULT '',
+            clauses_json TEXT NOT NULL,
+            is_default INTEGER NOT NULL DEFAULT 0 CHECK(is_default IN (0, 1)),
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
+          CREATE TABLE IF NOT EXISTS office_profile (
+            id INTEGER PRIMARY KEY CHECK(id = 1),
+            office_name TEXT NOT NULL,
+            manager_name TEXT NOT NULL DEFAULT '',
+            phone TEXT NOT NULL DEFAULT '',
+            address TEXT NOT NULL DEFAULT '',
+            footer_note TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
+          CREATE INDEX IF NOT EXISTS idx_contracts_date ON contracts(contract_date DESC);
+          CREATE INDEX IF NOT EXISTS idx_contracts_number ON contracts(contract_number);
+          CREATE INDEX IF NOT EXISTS idx_parties_name ON parties(name);
+          CREATE INDEX IF NOT EXISTS idx_payments_contract ON payments(contract_id);
+          INSERT OR IGNORE INTO schema_migrations(version) VALUES (1);
+        `);
+      })();
+      appliedVersions.add(1);
+    }
+
+    if (!appliedVersions.has(2)) {
+      this.db.transaction(() => {
+        const contractColumns = this.db.prepare('PRAGMA table_info(contracts)').all() as Array<{ name: string }>;
+        if (!contractColumns.some((column) => column.name === 'template_id')) {
+          this.db.exec('ALTER TABLE contracts ADD COLUMN template_id INTEGER REFERENCES contract_templates(id) ON DELETE SET NULL');
+        }
+        if (!contractColumns.some((column) => column.name === 'template_name_snapshot')) {
+          this.db.exec("ALTER TABLE contracts ADD COLUMN template_name_snapshot TEXT NOT NULL DEFAULT ''");
+        }
+        if (!contractColumns.some((column) => column.name === 'clauses_snapshot')) {
+          this.db.exec("ALTER TABLE contracts ADD COLUMN clauses_snapshot TEXT NOT NULL DEFAULT '[]'");
+        }
+        this.db.exec(`
+          CREATE INDEX IF NOT EXISTS idx_contracts_template ON contracts(template_id);
+          INSERT INTO contract_templates(name, description, clauses_json, is_default)
+          SELECT
+            'القالب العام',
+            'هيكل أولي قابل للتعديل، ويجب مراجعته قانونياً قبل الاعتماد.',
+            '["أقر الطرفان بأهليتهما القانونية للتعاقد وبصحة البيانات المثبتة في هذا العقد.","اتفق الطرفان على موضوع العقد وقيمته وطريقة الوفاء المبينة في السجل.","يُعد توقيع الطرفين إقراراً بقراءة البنود وفهمها والموافقة عليها."]',
+            1
+          WHERE NOT EXISTS (SELECT 1 FROM contract_templates);
+          INSERT OR IGNORE INTO schema_migrations(version) VALUES (2);
+        `);
+      })();
+      appliedVersions.add(2);
+    }
+
+    if (!appliedVersions.has(3)) {
+      this.db.transaction(() => {
+        this.db.exec(`
+          INSERT OR IGNORE INTO office_profile(id, office_name, footer_note)
+          VALUES (1, 'مكتب العقود', 'أُنشئ بواسطة نظام مكتوب — NAS CodeWorks');
+          INSERT OR IGNORE INTO schema_migrations(version) VALUES (3);
+        `);
+      })();
+      appliedVersions.add(3);
+    }
+
+    if (!appliedVersions.has(4)) {
+      this.db.transaction(() => {
+        const contractColumns = this.db.prepare('PRAGMA table_info(contracts)').all() as Array<{ name: string }>;
+        if (!contractColumns.some((column) => column.name === 'property_details_json')) {
+          this.db.exec("ALTER TABLE contracts ADD COLUMN property_details_json TEXT NOT NULL DEFAULT ''");
+        }
+        if (!contractColumns.some((column) => column.name === 'vehicle_details_json')) {
+          this.db.exec("ALTER TABLE contracts ADD COLUMN vehicle_details_json TEXT NOT NULL DEFAULT ''");
+        }
+
+        const insertTemplate = this.db.prepare(`
+          INSERT INTO contract_templates(name, description, clauses_json, is_default)
+          SELECT ?, ?, ?, 0
+          WHERE NOT EXISTS (SELECT 1 FROM contract_templates WHERE name = ?)
+        `);
+
+        insertTemplate.run(
+          'قالب بيع وشراء عقار',
+          'قالب تشغيلي لعقود بيع وشراء العقارات والأراضي والمنازل مع توثيق الأوصاف والموقع.',
+          JSON.stringify([
+            'يقر البائع بملكيته التامة للعقار موضوع العقد وخلوه من أي حجز أو رهن أو نزاع قضائي حتى تاريخ توقيع هذا العقد.',
+            'عاين المشتري العقار المعاينة التامة النافية للجهالة شرعاً وقانوناً وقبل بشرائه بحالته الراهنة.',
+            'يلتزم الطرفان بالمبالغ وتواريخ الدفعات المثبتة في هذا السجل، ويعد الإخلال بالموعد سبباً لفسخ الاتفاق وفقاً للشروط المتفق عليها.',
+            'يتعهد البائع بالحضور أمام دائرة التسجيل العقاري المختصة للتنازل وإتمام نقل الملكية عند سداد كامل الثمن المتفق عليه.'
+          ]),
+          'قالب بيع وشراء عقار'
+        );
+
+        insertTemplate.run(
+          'قالب بيع وشراء سيارة',
+          'قالب تشغيلي لمعارض ومكاتب بيع المركبات متضمناً رقم الهيكل ورقم اللوحة والفحص.',
+          JSON.stringify([
+            'يقر البائع بأن المركبة الموصوفة في العقد ملك له وغير مطلوبة لأي جهة أمنية أو قضائية وخالية من أي حجز تنفيذي.',
+            'قام المشتري بفحص المركبة ومعاينتها وتجربتها وقبل بشرائها بحالتها الحاضرة ومواصفاتها المبينة أعلاه.',
+            'يتحمل البائع كافة الغرامات المرورية والرسوم والتبعات المالية أو القانونية السابقة لتاريخ توقيع هذا العقد وتسليم السيارة.',
+            'يلتزم الطرفان بمراجعة مديرية المرور المختصة لإكمال نقل الملكية وتحويل السنوية خلال المدة المحددة باتفاق الطرفين.'
+          ]),
+          'قالب بيع وشراء سيارة'
+        );
+
+        this.db.exec('INSERT OR IGNORE INTO schema_migrations(version) VALUES (4);');
+      })();
+      appliedVersions.add(4);
+    }
   }
 
   close() {
@@ -266,12 +395,19 @@ export class MaktoobDatabase {
   }
 
   verifyBackup(path: string) {
-    const candidate = new Database(path, { readonly: true, fileMustExist: true });
     try {
-      const tables = candidate.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>;
-      return ['contracts', 'parties', 'payments'].every((name) => tables.some((table) => table.name === name));
-    } finally {
-      candidate.close();
+      const candidate = new Database(path, { readonly: true, fileMustExist: true });
+      try {
+        const integrity = candidate.pragma('integrity_check') as Array<{ integrity_check: string }>;
+        if (!integrity.length || integrity[0]?.integrity_check !== 'ok') return false;
+        const tables = candidate.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>;
+        const required = ['contracts', 'parties', 'payments', 'contract_templates', 'office_profile'];
+        return required.every((name) => tables.some((table) => table.name === name));
+      } finally {
+        candidate.close();
+      }
+    } catch {
+      return false;
     }
   }
 
@@ -307,6 +443,8 @@ export class MaktoobDatabase {
       templateId: row.template_id,
       templateName: row.template_name_snapshot,
       clauses: parseClauses(row.clauses_snapshot),
+      propertyDetails: parseJson<PropertyDetails | null>(row.property_details_json, null),
+      vehicleDetails: parseJson<VehicleDetails | null>(row.vehicle_details_json, null),
       firstParty: { id: row.first_party_id, name: row.first_party_name, phone: row.first_party_phone, identifier: row.first_party_identifier, address: row.first_party_address },
       secondParty: { id: row.second_party_id, name: row.second_party_name, phone: row.second_party_phone, identifier: row.second_party_identifier, address: row.second_party_address },
       paidAmount: row.paid_amount,
@@ -340,9 +478,24 @@ export class MaktoobDatabase {
       const firstPartyId = this.insertParty(input.firstParty);
       const secondPartyId = this.insertParty(input.secondParty);
       const result = this.db.prepare(`INSERT INTO contracts
-        (contract_number, type, contract_date, status, amount, currency, notes, template_id, template_name_snapshot, clauses_snapshot, first_party_id, second_party_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(this.nextContractNumber(), input.type, input.contractDate, input.status, input.amount, input.currency, input.notes, template?.id ?? null, template?.name ?? '', JSON.stringify(template?.clauses ?? []), firstPartyId, secondPartyId);
+        (contract_number, type, contract_date, status, amount, currency, notes, template_id, template_name_snapshot, clauses_snapshot, property_details_json, vehicle_details_json, first_party_id, second_party_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(
+          this.nextContractNumber(),
+          input.type,
+          input.contractDate,
+          input.status,
+          input.amount,
+          input.currency,
+          input.notes,
+          template?.id ?? null,
+          template?.name ?? '',
+          JSON.stringify(template?.clauses ?? []),
+          input.propertyDetails ? JSON.stringify(input.propertyDetails) : '',
+          input.vehicleDetails ? JSON.stringify(input.vehicleDetails) : '',
+          firstPartyId,
+          secondPartyId
+        );
       return Number(result.lastInsertRowid);
     })();
     return this.getContract(id);
@@ -359,10 +512,21 @@ export class MaktoobDatabase {
       updateParty.run(input.firstParty.name, input.firstParty.phone, input.firstParty.identifier, input.firstParty.address, current.firstParty.id);
       updateParty.run(input.secondParty.name, input.secondParty.phone, input.secondParty.identifier, input.secondParty.address, current.secondParty.id);
       this.db.prepare(`UPDATE contracts SET type=?, contract_date=?, status=?, amount=?, currency=?, notes=?,
-        template_id=?, template_name_snapshot=?, clauses_snapshot=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
-        .run(input.type, input.contractDate, input.status, input.amount, input.currency, input.notes,
-          input.templateId, templateChanged ? template?.name ?? '' : current.templateName,
-          templateChanged ? JSON.stringify(template?.clauses ?? []) : JSON.stringify(current.clauses), id);
+        template_id=?, template_name_snapshot=?, clauses_snapshot=?, property_details_json=?, vehicle_details_json=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+        .run(
+          input.type,
+          input.contractDate,
+          input.status,
+          input.amount,
+          input.currency,
+          input.notes,
+          input.templateId,
+          templateChanged ? template?.name ?? '' : current.templateName,
+          templateChanged ? JSON.stringify(template?.clauses ?? []) : JSON.stringify(current.clauses),
+          input.propertyDetails ? JSON.stringify(input.propertyDetails) : '',
+          input.vehicleDetails ? JSON.stringify(input.vehicleDetails) : '',
+          id
+        );
     })();
     return this.getContract(id);
   }
@@ -448,7 +612,11 @@ export class MaktoobDatabase {
     const contract = this.getContract(id);
     this.db.transaction(() => {
       this.db.prepare('DELETE FROM contracts WHERE id=?').run(id);
-      this.db.prepare('DELETE FROM parties WHERE id IN (?, ?)').run(contract.firstParty.id, contract.secondParty.id);
+      this.db.prepare(`
+        DELETE FROM parties
+        WHERE id IN (?, ?)
+          AND id NOT IN (SELECT first_party_id FROM contracts UNION SELECT second_party_id FROM contracts)
+      `).run(contract.firstParty.id, contract.secondParty.id);
     })();
   }
 

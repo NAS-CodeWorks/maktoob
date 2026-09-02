@@ -29,6 +29,8 @@ function contractHtml(contract: Contract, profile: OfficeProfile) {
   </style></head><body>
     <header><div><h1>${escapeHtml(profile.officeName)}</h1><div class="muted">${profile.managerName ? `المسؤول: ${escapeHtml(profile.managerName)}` : 'نظام إدارة العقود'}</div></div><div><strong>${escapeHtml(contract.contractNumber)}</strong><br><span class="muted">${escapeHtml(status)}</span></div></header>
     <div class="meta"><div class="box"><span class="muted">نوع العقد</span><br><strong>${escapeHtml(contract.type)}</strong></div><div class="box"><span class="muted">تاريخ العقد</span><br><strong>${escapeHtml(contract.contractDate)}</strong></div><div class="box"><span class="muted">قيمة العقد</span><br><strong>${money(contract.amount, contract.currency)}</strong></div></div>
+    ${contract.propertyDetails ? `<section class="box property-details" style="margin:14px 0"><h2 style="font-size:14px;margin:0 0 10px;color:#795f2f">بيانات العقار / المبيع</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"><div><span class="muted">نوع العقار: </span><strong>${escapeHtml(contract.propertyDetails.propertyType || '—')}</strong></div><div><span class="muted">رقم القطعة: </span><strong>${escapeHtml(contract.propertyDetails.plotNumber || '—')}</strong></div><div><span class="muted">المقاطعة: </span><strong>${escapeHtml(contract.propertyDetails.districtNumber || '—')}</strong></div><div><span class="muted">المساحة: </span><strong>${escapeHtml(contract.propertyDetails.area || '—')}</strong></div><div><span class="muted">المحافظة: </span><strong>${escapeHtml(contract.propertyDetails.governorate || '—')}</strong></div><div><span class="muted">القضاء/الناحية: </span><strong>${escapeHtml(contract.propertyDetails.cityDistrict || '—')}</strong></div></div>${contract.propertyDetails.locationNotes ? `<div style="margin-top:8px;padding-top:6px;border-top:1px dashed #d9dfdb"><span class="muted">الموقع والحدود: </span>${escapeHtml(contract.propertyDetails.locationNotes)}</div>` : ''}</section>` : ''}
+    ${contract.vehicleDetails ? `<section class="box vehicle-details" style="margin:14px 0"><h2 style="font-size:14px;margin:0 0 10px;color:#795f2f">بيانات المركبة / المبيع</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"><div><span class="muted">الماركة/الشركة: </span><strong>${escapeHtml(contract.vehicleDetails.make || '—')}</strong></div><div><span class="muted">الموديل/الطراز: </span><strong>${escapeHtml(contract.vehicleDetails.model || '—')}</strong></div><div><span class="muted">سنة الصنع: </span><strong>${escapeHtml(contract.vehicleDetails.year || '—')}</strong></div><div><span class="muted">اللون: </span><strong>${escapeHtml(contract.vehicleDetails.color || '—')}</strong></div><div><span class="muted">رقم الهيكل: </span><strong style="direction:ltr;display:inline-block">${escapeHtml(contract.vehicleDetails.chassisNumber || '—')}</strong></div><div><span class="muted">رقم اللوحة: </span><strong>${escapeHtml(contract.vehicleDetails.plateNumber || '—')}</strong></div></div></section>` : ''}
     <section class="parties"><div class="box party"><h2>الطرف الأول</h2><p><strong>${escapeHtml(contract.firstParty.name)}</strong></p><p>الهاتف: ${escapeHtml(contract.firstParty.phone || '—')}</p><p>الهوية: ${escapeHtml(contract.firstParty.identifier || '—')}</p><p>العنوان: ${escapeHtml(contract.firstParty.address || '—')}</p></div>
     <div class="box party"><h2>الطرف الثاني</h2><p><strong>${escapeHtml(contract.secondParty.name)}</strong></p><p>الهاتف: ${escapeHtml(contract.secondParty.phone || '—')}</p><p>الهوية: ${escapeHtml(contract.secondParty.identifier || '—')}</p><p>العنوان: ${escapeHtml(contract.secondParty.address || '—')}</p></div></section>
     ${contract.notes ? `<div class="box" style="margin-top:14px"><strong>ملاحظات العقد</strong><br>${escapeHtml(contract.notes)}</div>` : ''}
@@ -117,6 +119,23 @@ export function registerIpc(database: MaktoobDatabase, licenseManager: LicenseMa
       return { ok: true as const, path: selection.filePath };
     } finally {
       window.destroy();
+    }
+  });
+
+  ipcMain.handle('contracts:print', async (_event, id: number) => {
+    licenseManager.requireActive();
+    const contract = database.getContract(id);
+    const window = new BrowserWindow({ show: false, webPreferences: { sandbox: true, nodeIntegration: false, contextIsolation: true } });
+    try {
+      await window.loadURL(`data:text/html;charset=UTF-8,${encodeURIComponent(contractHtml(contract, database.getOfficeProfile()))}`);
+      return await new Promise<{ ok: boolean; message?: string }>((resolve) => {
+        window.webContents.print({ silent: false, printBackground: true }, (success, failureReason) => {
+          if (success) resolve({ ok: true as const });
+          else resolve({ ok: false as const, message: failureReason || 'تم إلغاء الطباعة' });
+        });
+      });
+    } finally {
+      setTimeout(() => { if (!window.isDestroyed()) window.destroy(); }, 20000);
     }
   });
 }
