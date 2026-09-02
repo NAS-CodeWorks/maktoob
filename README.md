@@ -4,19 +4,42 @@
 
 Windows desktop contract-management product for Iraqi offices, developed by NAS CodeWorks.
 
-## V1 product boundary
-- Arabic-first RTL desktop application.
-- Local-first operation with SQLite.
-- Internet required for first activation only.
-- One-device license.
-- Property, vehicle and general sale contracts.
-- Per-license custom contract packs.
-- Search, payments, A4 PDF/print, backup and restore.
+## V1 Product Capabilities
+- **Arabic-first RTL desktop application** designed for Windows 10/11 64-bit.
+- **Local-first offline operation** powered by SQLite in WAL mode; no external cloud dependency.
+- **Device-bound offline licensing** using cryptographic Ed25519 signatures (1 License = 1 Device). No internet connection required for activation.
+- **Structured contract categories**:
+  - General sale contracts (`بيع عام`)
+  - Real estate and land contracts (`بيع عقار`) with plot, district, area, governorate, and location details
+  - Vehicle contracts (`بيع مركبة`) with make, model, year, color, chassis/VIN, and plate number
+  - Rental, pledge, and clearance contracts
+- **Contract templates and immutable snapshots**:
+  - Operational template library with specialized templates for real estate and vehicle sales
+  - Immutable clause snapshots stored per contract to protect historical wording from template edits
+- **Party registry and customer management**:
+  - Party auto-population and quick-fill from past office records
+  - Shared party records preserved when deleting individual contracts
+- **Financial tracking and payments**:
+  - Split tracking in Iraqi Dinar (IQD) and US Dollar (USD)
+  - Payment records, balance recalculation, and overpayment prevention
+- **Document generation and printing**:
+  - Formal A4 documents with office branding headers and footers
+  - Export to PDF and direct printing to Windows physical printers via native dialog
+- **Data safety and migrations**:
+  - Deterministic SQLite migrations tracked in `schema_migrations`
+  - Automated backup creation and integrity-verified restoration (`PRAGMA integrity_check`)
+  - Corrupt or invalid backup restore protection
 
-## Development policy
+## Development Source of Truth
 `develop` is the development source of truth.
 
-Do not push code after failed lint/typecheck/build.
+Do not commit or push code unless all quality gates pass:
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
 
 ## Bootstrap
 ```bash
@@ -27,41 +50,27 @@ npm test
 npm run build
 ```
 
-## Implemented through 0.5
-- Atomic contract CRUD with automatic numbering.
-- Local SQLite storage for contracts, parties and payments.
-- Search and operational dashboard totals.
-- A4 PDF export with payment summary.
-- Verified backup and restore flow.
-- Secure preload bridge with narrow IPC handlers.
-- Node database tests and GitHub Actions quality gates.
-- Editable contract-template library with a safe default template.
-- Immutable clause snapshots stored with each contract.
-- Template clauses included in contract details and A4 PDF output.
-- Persistent office identity settings for branded PDF headers and footers.
-- Offline Ed25519 license verification bound to one device fingerprint.
-- License activation screen and signed-license import.
-- Separate key-generation and license-issuer tools; private keys are excluded from Git.
+## Windows Packaging
+```bash
+# Package into unpacked directory
+npm run package:dir
 
-## License authority
+# Build production NSIS installer (Maktoob-0.5.0-x64.exe)
+npm run package:win
+```
 
-Generate a key pair only in a secure directory outside the repository. Ship only the generated public key as `resources/license-public.pem`.
+## License Authority & Security
+
+Generate a cryptographic Ed25519 key pair only in a secure directory outside the repository. Ship only the generated public key as `resources/license-public.pem`.
 
 ```bash
 npm run license:keygen -- /secure/maktoob-license-authority
 ```
 
-Issue a license after receiving the device ID from the activation screen:
+Issue a device-bound license after receiving the hardware fingerprint from the office activation screen:
 
 ```bash
-npm run license:issue -- --private-key /secure/maktoob-license-authority/maktoob-license-private.pem --device MK-0000-0000-0000-0000-0000-0000 --customer "Office name" --out customer.license.json
+npm run license:issue -- --private-key /secure/maktoob-license-authority/maktoob-license-private.pem --device MK-0000-0000-0000-0000-0000-0000 --customer "اسم المكتب" --out customer.license.json
 ```
 
-Never commit, upload, email, or bundle `maktoob-license-private.pem` with the application.
-
-## Windows package
-```bash
-npm run package:win
-```
-
-The repository must pass typecheck, lint, tests and build before a development checkpoint.
+**Security Invariant**: Never commit, upload, email, or bundle `maktoob-license-private.pem` with the application. Only the public key (`resources/license-public.pem`) is distributed.
