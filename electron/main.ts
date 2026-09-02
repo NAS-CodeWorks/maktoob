@@ -16,7 +16,7 @@ function createWindow() {
     backgroundColor: '#f3f5f2',
     show: false,
     webPreferences: {
-      preload: path.join(currentDir, 'preload.js'),
+      preload: path.join(currentDir, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -33,7 +33,7 @@ function createWindow() {
   window.once('ready-to-show', () => window.show());
   const devServer = process.env.VITE_DEV_SERVER_URL;
   if (devServer) void window.loadURL(devServer);
-  else void window.loadFile(path.join(currentDir, '../dist/index.html'));
+  else void window.loadFile(path.join(app.getAppPath(), 'dist/index.html'));
 }
 
 let database: MaktoobDatabase | undefined;

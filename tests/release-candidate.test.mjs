@@ -724,7 +724,7 @@ test('RC-17: electron security boundary verification', async () => {
   assert.ok(mainTs.includes('sandbox: true'));
   assert.ok(mainTs.includes("action: 'deny'"));
 
-  const preloadTs = await readFile(path.join(repoRoot, 'electron', 'preload.ts'), 'utf8');
+  const preloadTs = await readFile(path.join(repoRoot, 'electron', 'preload.cts'), 'utf8');
   assert.ok(preloadTs.includes("contextBridge.exposeInMainWorld('maktoob', api)"));
   assert.ok(!preloadTs.includes('process.env'));
   assert.ok(!preloadTs.includes('child_process'));
