@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useForm } from 'react-hook-form';
-import type { Contract, ContractInput, ContractListItem, ContractStatus, ContractTemplate, ContractTemplateInput, DashboardSummary, OfficeProfile, PartySummary, PaymentInput, PaymentListItem } from '../shared/domain';
+import type { Contract, ContractInput, ContractListItem, ContractStatus, ContractTemplate, ContractTemplateInput, DashboardSummary, LicenseState, OfficeProfile, PartySummary, PaymentInput, PaymentListItem } from '../shared/domain';
 import './templates.css';
 
 type View = 'dashboard' | 'contracts' | 'templates' | 'parties' | 'payments' | 'backup' | 'settings';
@@ -89,15 +89,26 @@ function OfficeSettings({ profile, onSaved }: { profile: OfficeProfile; onSaved:
   </div>{error && <div className="form-error">{error}</div>}<footer className="modal-actions"><button className="primary" disabled={isSubmitting}>{isSubmitting ? 'جارٍ الحفظ…' : 'حفظ إعدادات المكتب'}</button></footer></form></section>;
 }
 
+function ActivationScreen({ license, onChanged }: { license: LicenseState; onChanged: (license: LicenseState) => void }) {
+  const [working, setWorking] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const activate = async () => { setWorking(true); try { onChanged(await window.maktoob.importLicense()); } finally { setWorking(false); } };
+  const copyDeviceId = async () => { await navigator.clipboard.writeText(license.deviceId); setCopied(true); window.setTimeout(() => setCopied(false), 1800); };
+  return <main className="activation-screen"><section className="activation-card"><div className="activation-brand"><span className="brand-mark">م</span><div><strong>مكتوب</strong><small>ترخيص جهاز واحد</small></div></div><span className={`license-state license-${license.status}`}>{license.status === 'configuration_error' ? 'خطأ في نسخة التطبيق' : 'التطبيق غير مفعّل'}</span><h1>تفعيل نسخة المكتب</h1><p>{license.message}. انسخ بصمة الجهاز وأرسلها إلى جهة إصدار الترخيص، ثم استورد الملف المستلم.</p><label><span>بصمة هذا الجهاز</span><div className="device-id"><code>{license.deviceId || 'جارٍ تحديد الجهاز…'}</code><button className="secondary" onClick={copyDeviceId} disabled={!license.deviceId}>{copied ? 'تم النسخ' : 'نسخ'}</button></div></label><button className="primary activation-button" onClick={activate} disabled={working || license.status === 'configuration_error'}>{working ? 'جارٍ فحص الترخيص…' : 'اختيار ملف الترخيص'}</button><small className="activation-note">لا يحتاج التفعيل إلى اتصال بالإنترنت، ولا يغادر معرّف الجهاز هذا الحاسوب إلا عند نسخه يدوياً.</small></section></main>;
+}
+
 export function App() {
   const [view, setView] = useState<View>('dashboard'); const [query, setQuery] = useState(''); const [dashboard, setDashboard] = useState<DashboardSummary | null>(null);
   const [contracts, setContracts] = useState<ContractListItem[]>([]); const [templates, setTemplates] = useState<ContractTemplate[]>([]); const [parties, setParties] = useState<PartySummary[]>([]); const [payments, setPayments] = useState<PaymentListItem[]>([]); const [officeProfile, setOfficeProfile] = useState<OfficeProfile | null>(null);
   const [editing, setEditing] = useState<Contract | null | 'new'>(null); const [editingTemplate, setEditingTemplate] = useState<ContractTemplate | null | 'new'>(null); const [details, setDetails] = useState<Contract | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [toast, setToast] = useState('');
+  const [license, setLicense] = useState<LicenseState | null>(null);
   const notify = useCallback((value: string) => { setToast(value); window.setTimeout(() => setToast(''), 4000); }, []);
   const load = useCallback(async () => { await Promise.resolve(); setLoading(true); setError(''); try { if (view === 'dashboard') { const [summary, profile] = await Promise.all([window.maktoob.dashboard(), window.maktoob.getOfficeProfile()]); setDashboard(summary); setOfficeProfile(profile); } if (view === 'contracts') setContracts(await window.maktoob.listContracts(query)); if (view === 'templates') setTemplates(await window.maktoob.listTemplates(query)); if (view === 'parties') setParties(await window.maktoob.listParties(query)); if (view === 'payments') setPayments(await window.maktoob.listPayments(query)); if (view === 'settings') setOfficeProfile(await window.maktoob.getOfficeProfile()); } catch (caught) { setError(messageFrom(caught)); } finally { setLoading(false); } }, [query, view]);
-  // IPC data is synchronized when the active operational view changes.
+  // License state is loaded before any protected operational request.
+  useEffect(() => { void window.maktoob.getLicenseState().then(setLicense).catch((caught) => setError(messageFrom(caught))); }, []);
+  // IPC data is synchronized only after the local license becomes active.
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (license?.status === 'active') void load(); }, [license?.status, load]);
   const changeView = (next: View) => { setQuery(''); setView(next); };
   const openDetails = async (id: number) => { try { setDetails(await window.maktoob.getContract(id)); } catch (caught) { setError(messageFrom(caught)); } };
   const refreshDetails = async () => { if (details) setDetails(await window.maktoob.getContract(details.id)); await load(); };
@@ -106,6 +117,8 @@ export function App() {
   const openContractEdit = async (id: number) => { try { const [contract, availableTemplates] = await Promise.all([window.maktoob.getContract(id), window.maktoob.listTemplates()]); setTemplates(availableTemplates); setEditing(contract); } catch (caught) { setError(messageFrom(caught)); } };
   const removeTemplate = async (template: ContractTemplate) => { if (!confirm(`حذف قالب «${template.name}»؟ ستبقى نسخ البنود محفوظة داخل العقود السابقة.`)) return; try { await window.maktoob.deleteTemplate(template.id); notify('تم حذف القالب'); await load(); } catch (caught) { setError(messageFrom(caught)); } };
   const currentTitle = navItems.find((item) => item.id === view)!.label; const arabicDate = useMemo(() => new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'full' }).format(new Date()), []);
+  if (!license) return <div className="activation-loading">جارٍ التحقق من ترخيص مكتوب…</div>;
+  if (license.status !== 'active') return <ActivationScreen license={license} onChanged={setLicense} />;
   return <div className="app-shell"><aside className="sidebar"><div className="brand"><span className="brand-mark">م</span><div><strong>مكتوب</strong><small>من السجلات إلى الديسكتوب</small></div></div><nav>{navItems.map((item) => <button key={item.id} className={`nav-item ${view === item.id ? 'active' : ''}`} onClick={() => changeView(item.id)}><span>{item.icon}</span>{item.label}</button>)}</nav><div className="office-card"><span>نسخة المكتب</span><strong>{officeProfile?.officeName ?? 'مكتب العقود'}</strong><small>قاعدة البيانات محلية وآمنة</small></div></aside>
     <main><header className="topbar"><div><p>{arabicDate}</p><h1>{currentTitle}</h1></div>{view === 'templates' ? <button className="primary" onClick={() => setEditingTemplate('new')}>+ قالب جديد</button> : view !== 'settings' && <button className="primary" onClick={openContractForm}>+ عقد جديد</button>}</header>{error && <div className="page-error"><strong>تعذر إكمال العملية</strong><span>{error}</span><button onClick={() => setError('')}>×</button></div>}
       {view !== 'dashboard' && view !== 'backup' && view !== 'settings' && <div className="toolbar"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`ابحث في ${currentTitle}`} /><span>{view === 'contracts' ? contracts.length : view === 'templates' ? templates.length : view === 'parties' ? parties.length : payments.length} نتيجة</span></div>}

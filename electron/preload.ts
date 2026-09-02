@@ -3,7 +3,9 @@ import type { ContractInput, ContractTemplateInput, MaktoobAPI, OfficeProfile, P
 
 const api: MaktoobAPI = {
   platform: process.platform,
-  version: '0.4.0',
+  version: '0.5.0',
+  getLicenseState: () => ipcRenderer.invoke('license:status'),
+  importLicense: () => ipcRenderer.invoke('license:import'),
   dashboard: () => ipcRenderer.invoke('dashboard:get'),
   listContracts: (query?: string) => ipcRenderer.invoke('contracts:list', query),
   getContract: (id: number) => ipcRenderer.invoke('contracts:get', id),
