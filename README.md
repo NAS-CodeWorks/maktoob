@@ -20,10 +20,25 @@ Do not push code after failed lint/typecheck/build.
 
 ## Bootstrap
 ```bash
-npm install
+npm ci
 npm run lint
 npm run typecheck
+npm test
 npm run build
 ```
 
-The repository must pass all three gates before the first development checkpoint.
+## Implemented in 0.2
+- Atomic contract CRUD with automatic numbering.
+- Local SQLite storage for contracts, parties and payments.
+- Search and operational dashboard totals.
+- A4 PDF export with payment summary.
+- Verified backup and restore flow.
+- Secure preload bridge with narrow IPC handlers.
+- Node database tests and GitHub Actions quality gates.
+
+## Windows package
+```bash
+npm run package:win
+```
+
+The repository must pass typecheck, lint, tests and build before a development checkpoint.
