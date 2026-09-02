@@ -46,6 +46,11 @@
 .contract-clauses h3 { margin: 4px 0 12px; color: #795f2f; }
 .contract-clauses ol { margin: 0; padding-right: 22px; line-height: 1.9; }
 .contract-clauses li + li { margin-top: 8px; }
+.settings-panel { max-width: 920px; margin-top: 32px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 28px; }
+.settings-intro { border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 22px; }
+.settings-intro h2 { margin: 6px 0; font-size: 21px; }
+.settings-intro p { margin: 0; color: var(--muted); line-height: 1.8; }
+.settings-panel .modal-actions { padding-bottom: 0; }
 
 @media (max-width: 1250px) {
   .template-grid { grid-template-columns: repeat(2, minmax(260px, 1fr)); }

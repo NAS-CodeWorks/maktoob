@@ -101,6 +101,14 @@ export type PaymentListItem = Payment & {
 
 export type OperationResult = { ok: true; path?: string } | { ok: false; message: string };
 
+export type OfficeProfile = {
+  officeName: string;
+  managerName: string;
+  phone: string;
+  address: string;
+  footerNote: string;
+};
+
 export type MaktoobAPI = {
   platform: string;
   version: string;
@@ -114,6 +122,8 @@ export type MaktoobAPI = {
   createTemplate: (input: ContractTemplateInput) => Promise<ContractTemplate>;
   updateTemplate: (id: number, input: ContractTemplateInput) => Promise<ContractTemplate>;
   deleteTemplate: (id: number) => Promise<void>;
+  getOfficeProfile: () => Promise<OfficeProfile>;
+  updateOfficeProfile: (profile: OfficeProfile) => Promise<OfficeProfile>;
   listParties: (query?: string) => Promise<PartySummary[]>;
   listPayments: (query?: string) => Promise<PaymentListItem[]>;
   addPayment: (input: PaymentInput) => Promise<Payment>;
