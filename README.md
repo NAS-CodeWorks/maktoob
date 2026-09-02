@@ -27,7 +27,7 @@ npm test
 npm run build
 ```
 
-## Implemented in 0.2
+## Implemented through 0.3
 - Atomic contract CRUD with automatic numbering.
 - Local SQLite storage for contracts, parties and payments.
 - Search and operational dashboard totals.
@@ -35,6 +35,9 @@ npm run build
 - Verified backup and restore flow.
 - Secure preload bridge with narrow IPC handlers.
 - Node database tests and GitHub Actions quality gates.
+- Editable contract-template library with a safe default template.
+- Immutable clause snapshots stored with each contract.
+- Template clauses included in contract details and A4 PDF output.
 
 ## Windows package
 ```bash

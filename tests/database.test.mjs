@@ -6,7 +6,7 @@ import test from 'node:test';
 import { MaktoobDatabase } from '../dist-electron/electron/database.js';
 
 const contractInput = {
-  type: 'بيع عقار', contractDate: '2026-09-02', status: 'pending_payment', amount: 1000000, currency: 'IQD', notes: 'اختبار تشغيلي',
+  type: 'بيع عقار', contractDate: '2026-09-02', status: 'pending_payment', amount: 1000000, currency: 'IQD', notes: 'اختبار تشغيلي', templateId: null,
   firstParty: { name: 'محمد سالم', phone: '07800000001', identifier: 'ID-1', address: 'الرمادي' },
   secondParty: { name: 'أحمد جاسم', phone: '07800000002', identifier: 'ID-2', address: 'الفلوجة' },
 };
@@ -46,4 +46,29 @@ test('calculates dashboard and creates a valid backup', async () => withDatabase
   const backupPath = path.join(directory, 'backup.sqlite');
   await database.backup(backupPath);
   assert.equal(database.verifyBackup(backupPath), true);
+}));
+
+test('stores an immutable clause snapshot for each contract', async () => withDatabase(async (database) => {
+  const defaultTemplate = database.listTemplates().find((template) => template.isDefault);
+  assert.ok(defaultTemplate);
+  const contract = database.createContract({ ...contractInput, templateId: defaultTemplate.id });
+  assert.equal(contract.templateName, defaultTemplate.name);
+  assert.deepEqual(contract.clauses, defaultTemplate.clauses);
+  database.updateTemplate(defaultTemplate.id, { ...defaultTemplate, clauses: ['بند محدث للعقود الجديدة'] });
+  assert.deepEqual(database.getContract(contract.id).clauses, defaultTemplate.clauses);
+  const nextContract = database.createContract({ ...contractInput, templateId: defaultTemplate.id });
+  assert.deepEqual(nextContract.clauses, ['بند محدث للعقود الجديدة']);
+  database.updateTemplate(defaultTemplate.id, { ...defaultTemplate, name: 'قالب المكتب', clauses: ['بند محدث للعقود الجديدة'] });
+  database.reopen();
+  assert.deepEqual(database.listTemplates().map((template) => template.name), ['قالب المكتب']);
+}));
+
+test('keeps contract clauses after deleting a non-default template', async () => withDatabase(async (database) => {
+  const template = database.createTemplate({ name: 'قالب مؤقت', description: '', clauses: ['بند محفوظ'], isDefault: false });
+  const contract = database.createContract({ ...contractInput, templateId: template.id });
+  database.deleteTemplate(template.id);
+  const stored = database.getContract(contract.id);
+  assert.equal(stored.templateId, null);
+  assert.equal(stored.templateName, 'قالب مؤقت');
+  assert.deepEqual(stored.clauses, ['بند محفوظ']);
 }));
