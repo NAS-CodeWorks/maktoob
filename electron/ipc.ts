@@ -1,6 +1,6 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { copyFile, rm, writeFile } from 'node:fs/promises';
-import type { Contract, ContractInput, ContractTemplateInput, PaymentInput } from '../shared/domain.js';
+import type { Contract, ContractInput, PaymentInput } from '../shared/domain.js';
 import { MaktoobDatabase } from './database.js';
 
 function escapeHtml(value: string | number) {
@@ -23,7 +23,6 @@ function contractHtml(contract: Contract) {
     .parties{display:grid;grid-template-columns:1fr 1fr;gap:14px}.party h2{font-size:15px;margin:0 0 8px;color:#795f2f}.party p{margin:3px 0}
     table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #d9dfdb;padding:8px;text-align:right}th{background:#f3f5f2}
     .summary{margin-top:20px;margin-right:auto;width:280px}.summary div{display:flex;justify-content:space-between;border-bottom:1px solid #e4e7e5;padding:6px 0}
-    .clauses{margin-top:20px}.clauses h2{font-size:16px;color:#795f2f}.clauses ol{padding-right:22px}.clauses li{margin-bottom:9px}
     footer{margin-top:40px;padding-top:12px;border-top:1px solid #d9dfdb;text-align:center;color:#7b847f;font-size:10px}
   </style></head><body>
     <header><div><h1>مكتوب</h1><div class="muted">من السجلات إلى الديسكتوب</div></div><div><strong>${escapeHtml(contract.contractNumber)}</strong><br><span class="muted">${escapeHtml(status)}</span></div></header>
@@ -31,7 +30,6 @@ function contractHtml(contract: Contract) {
     <section class="parties"><div class="box party"><h2>الطرف الأول</h2><p><strong>${escapeHtml(contract.firstParty.name)}</strong></p><p>الهاتف: ${escapeHtml(contract.firstParty.phone || '—')}</p><p>الهوية: ${escapeHtml(contract.firstParty.identifier || '—')}</p><p>العنوان: ${escapeHtml(contract.firstParty.address || '—')}</p></div>
     <div class="box party"><h2>الطرف الثاني</h2><p><strong>${escapeHtml(contract.secondParty.name)}</strong></p><p>الهاتف: ${escapeHtml(contract.secondParty.phone || '—')}</p><p>الهوية: ${escapeHtml(contract.secondParty.identifier || '—')}</p><p>العنوان: ${escapeHtml(contract.secondParty.address || '—')}</p></div></section>
     ${contract.notes ? `<div class="box" style="margin-top:14px"><strong>ملاحظات العقد</strong><br>${escapeHtml(contract.notes)}</div>` : ''}
-    ${contract.clauses.length ? `<section class="clauses"><h2>${escapeHtml(contract.templateName || 'بنود العقد')}</h2><ol>${contract.clauses.map((clause) => `<li>${escapeHtml(clause)}</li>`).join('')}</ol></section>` : ''}
     <table><thead><tr><th>تاريخ الدفعة</th><th>طريقة الدفع</th><th>المبلغ</th><th>ملاحظة</th></tr></thead><tbody>${paymentRows}</tbody></table>
     <div class="summary"><div><span>قيمة العقد</span><strong>${money(contract.amount, contract.currency)}</strong></div><div><span>المستلم</span><strong>${money(contract.paidAmount, contract.currency)}</strong></div><div><span>المتبقي</span><strong>${money(contract.remainingAmount, contract.currency)}</strong></div></div>
     <footer>أُنشئ بواسطة نظام مكتوب — NAS CodeWorks</footer></body></html>`;
@@ -44,10 +42,6 @@ export function registerIpc(database: MaktoobDatabase) {
   ipcMain.handle('contracts:create', (_event, input: ContractInput) => database.createContract(input));
   ipcMain.handle('contracts:update', (_event, id: number, input: ContractInput) => database.updateContract(id, input));
   ipcMain.handle('contracts:delete', (_event, id: number) => database.deleteContract(id));
-  ipcMain.handle('templates:list', (_event, query?: string) => database.listTemplates(query));
-  ipcMain.handle('templates:create', (_event, input: ContractTemplateInput) => database.createTemplate(input));
-  ipcMain.handle('templates:update', (_event, id: number, input: ContractTemplateInput) => database.updateTemplate(id, input));
-  ipcMain.handle('templates:delete', (_event, id: number) => database.deleteTemplate(id));
   ipcMain.handle('parties:list', (_event, query?: string) => database.listParties(query));
   ipcMain.handle('payments:list', (_event, query?: string) => database.listPayments(query));
   ipcMain.handle('payments:add', (_event, input: PaymentInput) => database.addPayment(input));
