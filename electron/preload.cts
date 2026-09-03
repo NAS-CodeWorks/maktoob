@@ -12,6 +12,7 @@ const api: MaktoobAPI = {
   createContract: (input: ContractInput) => ipcRenderer.invoke('contracts:create', input),
   updateContract: (id: number, input: ContractInput) => ipcRenderer.invoke('contracts:update', id, input),
   deleteContract: (id: number) => ipcRenderer.invoke('contracts:delete', id),
+  previewContractHtml: (input: ContractInput, profile?: OfficeProfile) => ipcRenderer.invoke('contracts:preview-html', input, profile),
   listTemplates: (query?: string) => ipcRenderer.invoke('templates:list', query),
   createTemplate: (input: ContractTemplateInput) => ipcRenderer.invoke('templates:create', input),
   updateTemplate: (id: number, input: ContractTemplateInput) => ipcRenderer.invoke('templates:update', id, input),

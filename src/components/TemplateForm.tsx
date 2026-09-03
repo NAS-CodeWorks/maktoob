@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { ContractTemplate, ContractTemplateInput } from '../../shared/domain';
+import { ContractPreviewModal } from './ContractPreviewModal';
 
 const messageFrom = (error: unknown) =>
   (error instanceof Error ? error.message : String(error)).replace(/^Error invoking remote method '[^']+': Error: /, '');
@@ -19,6 +20,7 @@ export function TemplateForm({
   const [isDefault, setIsDefault] = useState(template?.isDefault ?? false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -103,6 +105,13 @@ export function TemplateForm({
           </p>
           {error && <div className="form-error">{error}</div>}
           <footer className="modal-actions">
+            <button
+              type="button"
+              className="secondary btn-preview-action"
+              onClick={() => setShowPreview(true)}
+            >
+              👁️ معاينة القالب A4
+            </button>
             <button type="button" className="secondary" onClick={onClose}>
               إلغاء
             </button>
@@ -112,6 +121,35 @@ export function TemplateForm({
           </footer>
         </form>
       </section>
+
+      {showPreview && (
+        <ContractPreviewModal
+          contractInput={{
+            type: name || 'عقد تجريبي',
+            contractDate: new Date().toISOString().slice(0, 10),
+            status: 'completed',
+            amount: 15000000,
+            currency: 'IQD',
+            notes: 'معاينة تجريبية للتحقق من هوامش وتنسيق بنود القالب في قياس A4.',
+            templateId: null,
+            firstParty: {
+              name: 'أحمد جاسم محمد (طرف أول تجريبي)',
+              phone: '07701234567',
+              identifier: '19850123456',
+              address: 'بغداد — الكرخ',
+            },
+            secondParty: {
+              name: 'علي حسين كاظم (طرف ثانٍ تجريبي)',
+              phone: '07809876543',
+              identifier: '19920654321',
+              address: 'بغداد — الرصافة',
+            },
+            firstPartyPhoto: null,
+            secondPartyPhoto: null,
+          }}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   );
 }
