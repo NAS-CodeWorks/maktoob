@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MaktoobDatabase } from './database.js';
 import { registerIpc } from './ipc.js';
+import { LicenseManager } from './licensing.js';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -15,7 +16,7 @@ function createWindow() {
     backgroundColor: '#f3f5f2',
     show: false,
     webPreferences: {
-      preload: path.join(currentDir, 'preload.js'),
+      preload: path.join(currentDir, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -32,14 +33,17 @@ function createWindow() {
   window.once('ready-to-show', () => window.show());
   const devServer = process.env.VITE_DEV_SERVER_URL;
   if (devServer) void window.loadURL(devServer);
-  else void window.loadFile(path.join(currentDir, '../dist/index.html'));
+  else void window.loadFile(path.join(app.getAppPath(), 'dist/index.html'));
 }
 
 let database: MaktoobDatabase | undefined;
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   database = new MaktoobDatabase(path.join(app.getPath('userData'), 'maktoob.sqlite'));
-  registerIpc(database);
+  const publicKeyPath = app.isPackaged ? path.join(process.resourcesPath, 'license-public.pem') : path.join(app.getAppPath(), 'resources', 'license-public.pem');
+  const licenseManager = new LicenseManager(path.join(app.getPath('userData'), 'license', 'maktoob.license.json'), publicKeyPath, !app.isPackaged && process.env.MAKTOOB_DEV_LICENSE_BYPASS === '1');
+  await licenseManager.initialize();
+  registerIpc(database, licenseManager);
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });

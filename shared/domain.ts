@@ -8,6 +8,25 @@ export type PartyInput = {
   address: string;
 };
 
+export type PropertyDetails = {
+  propertyType: string;
+  plotNumber: string;
+  districtNumber: string;
+  area: string;
+  governorate: string;
+  cityDistrict: string;
+  locationNotes: string;
+};
+
+export type VehicleDetails = {
+  make: string;
+  model: string;
+  year: string;
+  color: string;
+  chassisNumber: string;
+  plateNumber: string;
+};
+
 export type ContractInput = {
   type: string;
   contractDate: string;
@@ -15,8 +34,25 @@ export type ContractInput = {
   amount: number;
   currency: Currency;
   notes: string;
+  templateId: number | null;
+  propertyDetails?: PropertyDetails | null;
+  vehicleDetails?: VehicleDetails | null;
   firstParty: PartyInput;
   secondParty: PartyInput;
+};
+
+export type ContractTemplateInput = {
+  name: string;
+  description: string;
+  clauses: string[];
+  isDefault: boolean;
+};
+
+export type ContractTemplate = ContractTemplateInput & {
+  id: number;
+  contractsCount: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type PaymentInput = {
@@ -50,6 +86,11 @@ export type Contract = {
   amount: number;
   currency: Currency;
   notes: string;
+  templateId: number | null;
+  templateName: string;
+  clauses: string[];
+  propertyDetails: PropertyDetails | null;
+  vehicleDetails: VehicleDetails | null;
   firstParty: Party;
   secondParty: Party;
   paidAmount: number;
@@ -83,6 +124,38 @@ export type PaymentListItem = Payment & {
 
 export type OperationResult = { ok: true; path?: string } | { ok: false; message: string };
 
+export type OfficeProfile = {
+  officeName: string;
+  managerName: string;
+  phone: string;
+  address: string;
+  footerNote: string;
+};
+
+export type LicensePayload = {
+  version: 1;
+  licenseId: string;
+  customerName: string;
+  deviceId: string;
+  issuedAt: string;
+  expiresAt: string | null;
+  features: string[];
+};
+
+export type SignedLicense = {
+  payload: LicensePayload;
+  signature: string;
+};
+
+export type LicenseStatus = 'active' | 'missing' | 'invalid' | 'expired' | 'wrong_device' | 'configuration_error';
+
+export type LicenseState = {
+  status: LicenseStatus;
+  deviceId: string;
+  message: string;
+  payload?: LicensePayload;
+};
+
 export type MaktoobAPI = {
   platform: string;
   version: string;
@@ -92,11 +165,20 @@ export type MaktoobAPI = {
   createContract: (input: ContractInput) => Promise<Contract>;
   updateContract: (id: number, input: ContractInput) => Promise<Contract>;
   deleteContract: (id: number) => Promise<void>;
+  listTemplates: (query?: string) => Promise<ContractTemplate[]>;
+  createTemplate: (input: ContractTemplateInput) => Promise<ContractTemplate>;
+  updateTemplate: (id: number, input: ContractTemplateInput) => Promise<ContractTemplate>;
+  deleteTemplate: (id: number) => Promise<void>;
+  getOfficeProfile: () => Promise<OfficeProfile>;
+  updateOfficeProfile: (profile: OfficeProfile) => Promise<OfficeProfile>;
+  getLicenseState: () => Promise<LicenseState>;
+  importLicense: () => Promise<LicenseState>;
   listParties: (query?: string) => Promise<PartySummary[]>;
   listPayments: (query?: string) => Promise<PaymentListItem[]>;
   addPayment: (input: PaymentInput) => Promise<Payment>;
   deletePayment: (id: number) => Promise<void>;
   exportContractPdf: (id: number) => Promise<OperationResult>;
+  printContract: (id: number) => Promise<OperationResult>;
   createBackup: () => Promise<OperationResult>;
   restoreBackup: () => Promise<OperationResult>;
 };

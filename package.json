@@ -1,6 +1,6 @@
 {
   "name": "maktoob-desktop",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "private": true,
   "description": "مكتوب — من السجلات إلى الديسكتوب. نظام العقود للمكاتب العراقية.",
   "author": "NAS CodeWorks",
@@ -17,8 +17,10 @@
     "test": "npm run build:electron && node --test tests/*.test.mjs",
     "preview": "vite preview",
     "start": "electron .",
-    "package:win": "npm run build && electron-builder --win nsis",
-    "package:dir": "npm run build && electron-builder --dir"
+    "package:win": "npm run build && electron-builder --win nsis --publish never",
+    "package:dir": "npm run build && electron-builder --dir --publish never",
+    "license:keygen": "node scripts/generate-license-keys.mjs",
+    "license:issue": "node scripts/issue-license.mjs"
   },
   "dependencies": {
     "better-sqlite3": "latest",
@@ -58,6 +60,12 @@
       "dist/**/*",
       "dist-electron/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/license-public.pem",
+        "to": "license-public.pem"
+      }
     ],
     "win": {
       "target": "nsis"
