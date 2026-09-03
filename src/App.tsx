@@ -195,7 +195,7 @@ export function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">م</span>
+          <img src="./branding/maktoob-256.png" alt="مكتوب" className="brand-logo-img" />
           <div>
             <strong>مكتوب</strong>
             <small>من السجلات إلى الديسكتوب</small>
