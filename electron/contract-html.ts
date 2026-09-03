@@ -86,6 +86,17 @@ export function contractHtml(contract: Contract, profile: OfficeProfile): string
       margin: 0 0 6px;
       color: #795f2f;
     }
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .office-logo {
+      max-height: 48px;
+      max-width: 120px;
+      object-fit: contain;
+      border-radius: 4px;
+    }
     .parties {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -93,6 +104,24 @@ export function contractHtml(contract: Contract, profile: OfficeProfile): string
       margin: 10px 0;
       break-inside: avoid;
       page-break-inside: avoid;
+    }
+    .party-layout {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .party-details {
+      flex: 1;
+      min-width: 0;
+    }
+    .party-photo {
+      width: 70px;
+      height: 86px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid #c9d1cc;
+      background: #f8faf8;
+      flex-shrink: 0;
     }
     .party h2 {
       font-size: 13px;
@@ -170,12 +199,12 @@ export function contractHtml(contract: Contract, profile: OfficeProfile): string
       margin-top: 3px;
     }
   </style></head><body>
-    <header><div><h1>${escapeHtml(profile.officeName)}</h1><div class="muted">${profile.managerName ? `المسؤول: ${escapeHtml(profile.managerName)}` : 'نظام إدارة العقود'}</div></div><div><strong>${escapeHtml(contract.contractNumber)}</strong><br><span class="muted">${escapeHtml(status)}</span></div></header>
+    <header><div class="header-brand">${profile.logoData ? `<img src="${profile.logoData}" class="office-logo" alt="شعار المكتب" />` : ''}<div><h1>${escapeHtml(profile.officeName)}</h1><div class="muted">${profile.managerName ? `المسؤول: ${escapeHtml(profile.managerName)}` : 'نظام إدارة العقود'}</div></div></div><div><strong>${escapeHtml(contract.contractNumber)}</strong><br><span class="muted">${escapeHtml(status)}</span></div></header>
     <div class="meta"><div class="box"><span class="muted">نوع العقد</span><br><strong>${escapeHtml(contract.type)}</strong></div><div class="box"><span class="muted">تاريخ العقد</span><br><strong>${escapeHtml(contract.contractDate)}</strong></div><div class="box"><span class="muted">قيمة العقد</span><br><strong>${money(contract.amount, contract.currency)}</strong></div></div>
     ${contract.propertyDetails ? `<section class="box property-details"><h2 style="font-size:13px;margin:0 0 6px;color:#795f2f">بيانات العقار / المبيع</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px"><div><span class="muted">نوع العقار: </span><strong>${escapeHtml(contract.propertyDetails.propertyType || '—')}</strong></div><div><span class="muted">رقم القطعة: </span><strong>${escapeHtml(contract.propertyDetails.plotNumber || '—')}</strong></div><div><span class="muted">المقاطعة: </span><strong>${escapeHtml(contract.propertyDetails.districtNumber || '—')}</strong></div><div><span class="muted">المساحة: </span><strong>${escapeHtml(contract.propertyDetails.area || '—')}</strong></div><div><span class="muted">المحافظة: </span><strong>${escapeHtml(contract.propertyDetails.governorate || '—')}</strong></div><div><span class="muted">القضاء/الناحية: </span><strong>${escapeHtml(contract.propertyDetails.cityDistrict || '—')}</strong></div></div>${contract.propertyDetails.locationNotes ? `<div style="margin-top:6px;padding-top:4px;border-top:1px dashed #d9dfdb"><span class="muted">الموقع والحدود: </span>${escapeHtml(contract.propertyDetails.locationNotes)}</div>` : ''}</section>` : ''}
     ${contract.vehicleDetails ? `<section class="box vehicle-details"><h2 style="font-size:13px;margin:0 0 6px;color:#795f2f">بيانات المركبة / المبيع</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px"><div><span class="muted">الماركة/الشركة: </span><strong>${escapeHtml(contract.vehicleDetails.make || '—')}</strong></div><div><span class="muted">الموديل/الطراز: </span><strong>${escapeHtml(contract.vehicleDetails.model || '—')}</strong></div><div><span class="muted">سنة الصنع: </span><strong>${escapeHtml(contract.vehicleDetails.year || '—')}</strong></div><div><span class="muted">اللون: </span><strong>${escapeHtml(contract.vehicleDetails.color || '—')}</strong></div><div><span class="muted">رقم الهيكل: </span><strong style="direction:ltr;display:inline-block">${escapeHtml(contract.vehicleDetails.chassisNumber || '—')}</strong></div><div><span class="muted">رقم اللوحة: </span><strong>${escapeHtml(contract.vehicleDetails.plateNumber || '—')}</strong></div></div></section>` : ''}
-    <section class="parties"><div class="box party"><h2>الطرف الأول</h2><p><strong>${escapeHtml(contract.firstParty.name)}</strong></p><p>الهاتف: ${escapeHtml(contract.firstParty.phone || '—')}</p><p>الهوية: ${escapeHtml(contract.firstParty.identifier || '—')}</p><p>العنوان: ${escapeHtml(contract.firstParty.address || '—')}</p></div>
-    <div class="box party"><h2>الطرف الثاني</h2><p><strong>${escapeHtml(contract.secondParty.name)}</strong></p><p>الهاتف: ${escapeHtml(contract.secondParty.phone || '—')}</p><p>الهوية: ${escapeHtml(contract.secondParty.identifier || '—')}</p><p>العنوان: ${escapeHtml(contract.secondParty.address || '—')}</p></div></section>
+    <section class="parties"><div class="box party"><div class="party-layout">${contract.firstPartyPhoto ? `<img src="${contract.firstPartyPhoto}" class="party-photo" alt="صورة الطرف الأول" />` : ''}<div class="party-details"><h2>الطرف الأول</h2><p><strong>${escapeHtml(contract.firstParty.name)}</strong></p><p>الهاتف: ${escapeHtml(contract.firstParty.phone || '—')}</p><p>الهوية: ${escapeHtml(contract.firstParty.identifier || '—')}</p><p>العنوان: ${escapeHtml(contract.firstParty.address || '—')}</p></div></div></div>
+    <div class="box party"><div class="party-layout">${contract.secondPartyPhoto ? `<img src="${contract.secondPartyPhoto}" class="party-photo" alt="صورة الطرف الثاني" />` : ''}<div class="party-details"><h2>الطرف الثاني</h2><p><strong>${escapeHtml(contract.secondParty.name)}</strong></p><p>الهاتف: ${escapeHtml(contract.secondParty.phone || '—')}</p><p>الهوية: ${escapeHtml(contract.secondParty.identifier || '—')}</p><p>العنوان: ${escapeHtml(contract.secondParty.address || '—')}</p></div></div></div></section>
     ${contract.notes ? `<div class="box" style="margin-top:10px"><strong>ملاحظات العقد</strong><br>${escapeHtml(contract.notes)}</div>` : ''}
     ${contract.clauses.length ? `<section class="clauses"><h2>${escapeHtml(contract.templateName || 'بنود العقد')}</h2><ol>${contract.clauses.map((clause) => `<li>${escapeHtml(clause)}</li>`).join('')}</ol></section>` : ''}
     <div class="bottom-section">

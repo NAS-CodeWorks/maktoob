@@ -19,6 +19,9 @@ export function registerIpc(database: MaktoobDatabase, licenseManager: LicenseMa
   ipcMain.handle('contracts:create', (_event, input: ContractInput) => licensed(() => database.createContract(input)));
   ipcMain.handle('contracts:update', (_event, id: number, input: ContractInput) => licensed(() => database.updateContract(id, input)));
   ipcMain.handle('contracts:delete', (_event, id: number) => licensed(() => database.deleteContract(id)));
+  ipcMain.handle('contracts:preview-html', (_event, input: ContractInput, profile?: OfficeProfile) =>
+    licensed(() => database.previewContractHtml(input, profile))
+  );
   ipcMain.handle('templates:list', (_event, query?: string) => licensed(() => database.listTemplates(query)));
   ipcMain.handle('templates:create', (_event, input: ContractTemplateInput) => licensed(() => database.createTemplate(input)));
   ipcMain.handle('templates:update', (_event, id: number, input: ContractTemplateInput) => licensed(() => database.updateTemplate(id, input)));
@@ -78,7 +81,10 @@ export function registerIpc(database: MaktoobDatabase, licenseManager: LicenseMa
     if (selection.canceled || !selection.filePath) return { ok: false as const, message: 'تم إلغاء العملية' };
     const window = new BrowserWindow({ show: false, webPreferences: { sandbox: true, nodeIntegration: false, contextIsolation: true } });
     try {
-      await window.loadURL(`data:text/html;charset=UTF-8,${encodeURIComponent(contractHtml(contract, database.getOfficeProfile()))}`);
+      const profile: OfficeProfile = contract.officeSnapshot
+        ? { ...contract.officeSnapshot, theme: 'original' }
+        : database.getOfficeProfile();
+      await window.loadURL(`data:text/html;charset=UTF-8,${encodeURIComponent(contractHtml(contract, profile))}`);
       const pdf = await window.webContents.printToPDF({ printBackground: true, pageSize: 'A4' });
       await writeFile(selection.filePath, pdf);
       return { ok: true as const, path: selection.filePath };
@@ -92,7 +98,10 @@ export function registerIpc(database: MaktoobDatabase, licenseManager: LicenseMa
     const contract = database.getContract(id);
     const window = new BrowserWindow({ show: false, webPreferences: { sandbox: true, nodeIntegration: false, contextIsolation: true } });
     try {
-      await window.loadURL(`data:text/html;charset=UTF-8,${encodeURIComponent(contractHtml(contract, database.getOfficeProfile()))}`);
+      const profile: OfficeProfile = contract.officeSnapshot
+        ? { ...contract.officeSnapshot, theme: 'original' }
+        : database.getOfficeProfile();
+      await window.loadURL(`data:text/html;charset=UTF-8,${encodeURIComponent(contractHtml(contract, profile))}`);
       return await new Promise<{ ok: boolean; message?: string }>((resolve) => {
         window.webContents.print({ silent: false, printBackground: true }, (success, failureReason) => {
           if (success) resolve({ ok: true as const });

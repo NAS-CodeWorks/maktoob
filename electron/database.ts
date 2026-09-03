@@ -8,6 +8,8 @@ import type {
   Currency,
   DashboardSummary,
   OfficeProfile,
+  OfficeSnapshot,
+  OfficeTheme,
   PartyInput,
   PartySummary,
   Payment,
@@ -16,6 +18,7 @@ import type {
   PropertyDetails,
   VehicleDetails,
 } from '../shared/domain.js';
+import { contractHtml } from './contract-html.js';
 
 type ContractRow = {
   id: number;
@@ -41,6 +44,9 @@ type ContractRow = {
   second_party_phone: string;
   second_party_identifier: string;
   second_party_address: string;
+  first_party_photo: string | null;
+  second_party_photo: string | null;
+  office_snapshot_json: string | null;
   paid_amount: number;
   payments_count: number;
   created_at: string;
@@ -125,6 +131,16 @@ function validateVehicleDetails(input: unknown): VehicleDetails | null {
   };
 }
 
+function cleanPhoto(value: unknown, label: string): string | null {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value !== 'string') throw new Error(`${label}: صورة غير صالحة`);
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 2000000) throw new Error(`${label}: حجم الصورة كبير جداً (الحد الأقصى 1.5 ميغابايت)`);
+  if (!trimmed.startsWith('data:image/')) throw new Error(`${label}: صيغة الصورة غير مدعومة`);
+  return trimmed;
+}
+
 function validateContract(input: ContractInput): ContractInput {
   if (!input || typeof input !== 'object') throw new Error('بيانات العقد غير صالحة');
   if (!['draft', 'completed', 'pending_payment'].includes(input.status)) throw new Error('حالة العقد غير صالحة');
@@ -144,6 +160,8 @@ function validateContract(input: ContractInput): ContractInput {
     vehicleDetails: validateVehicleDetails(input.vehicleDetails),
     firstParty: validateParty(input.firstParty, 'الطرف الأول'),
     secondParty: validateParty(input.secondParty, 'الطرف الثاني'),
+    firstPartyPhoto: cleanPhoto(input.firstPartyPhoto, 'صورة الطرف الأول'),
+    secondPartyPhoto: cleanPhoto(input.secondPartyPhoto, 'صورة الطرف الثاني'),
   };
 }
 
@@ -161,6 +179,8 @@ function validateTemplate(input: ContractTemplateInput): ContractTemplateInput {
   };
 }
 
+const VALID_THEMES: OfficeTheme[] = ['original', 'official', 'iraqi_warm', 'high_contrast'];
+
 function validateOfficeProfile(input: OfficeProfile): OfficeProfile {
   if (!input || typeof input !== 'object') throw new Error('بيانات المكتب غير صالحة');
   let logoData: string | null | undefined = undefined;
@@ -168,18 +188,21 @@ function validateOfficeProfile(input: OfficeProfile): OfficeProfile {
     if (input.logoData === null || input.logoData === '') {
       logoData = null;
     } else if (typeof input.logoData === 'string') {
-      if (input.logoData.length > 500000) throw new Error('حجم شعار المكتب كبير جداً');
+      if (input.logoData.length > 1000000) throw new Error('حجم شعار المكتب كبير جداً');
+      if (!input.logoData.startsWith('data:image/')) throw new Error('صيغة شعار المكتب غير صالحة');
       logoData = input.logoData;
     } else {
       throw new Error('شعار المكتب غير صالح');
     }
   }
+  const theme: OfficeTheme = input.theme && VALID_THEMES.includes(input.theme) ? input.theme : 'original';
   return {
     officeName: cleanText(input.officeName, 'اسم المكتب', true),
     managerName: cleanText(input.managerName, 'اسم المسؤول'),
     phone: cleanText(input.phone, 'هاتف المكتب'),
     address: cleanText(input.address, 'عنوان المكتب'),
     footerNote: cleanText(input.footerNote, 'تذييل المستند'),
+    theme,
     ...(logoData !== undefined ? { logoData } : {}),
   };
 }
@@ -400,6 +423,31 @@ export class MaktoobDatabase {
       })();
       appliedVersions.add(5);
     }
+
+    if (!appliedVersions.has(6)) {
+      this.db.transaction(() => {
+        const contractColumns = this.db.prepare('PRAGMA table_info(contracts)').all() as Array<{ name: string }>;
+        if (!contractColumns.some((col) => col.name === 'first_party_photo')) {
+          this.db.exec('ALTER TABLE contracts ADD COLUMN first_party_photo TEXT DEFAULT NULL');
+        }
+        if (!contractColumns.some((col) => col.name === 'second_party_photo')) {
+          this.db.exec('ALTER TABLE contracts ADD COLUMN second_party_photo TEXT DEFAULT NULL');
+        }
+        if (!contractColumns.some((col) => col.name === 'office_snapshot_json')) {
+          this.db.exec('ALTER TABLE contracts ADD COLUMN office_snapshot_json TEXT DEFAULT NULL');
+        }
+        const partyColumns = this.db.prepare('PRAGMA table_info(parties)').all() as Array<{ name: string }>;
+        if (!partyColumns.some((col) => col.name === 'photo_data')) {
+          this.db.exec('ALTER TABLE parties ADD COLUMN photo_data TEXT DEFAULT NULL');
+        }
+        const profileColumns = this.db.prepare('PRAGMA table_info(office_profile)').all() as Array<{ name: string }>;
+        if (!profileColumns.some((col) => col.name === 'theme')) {
+          this.db.exec("ALTER TABLE office_profile ADD COLUMN theme TEXT NOT NULL DEFAULT 'original'");
+        }
+        this.db.exec('INSERT OR IGNORE INTO schema_migrations(version) VALUES (6);');
+      })();
+      appliedVersions.add(6);
+    }
   }
 
   close() {
@@ -470,6 +518,9 @@ export class MaktoobDatabase {
       vehicleDetails: parseJson<VehicleDetails | null>(row.vehicle_details_json, null),
       firstParty: { id: row.first_party_id, name: row.first_party_name, phone: row.first_party_phone, identifier: row.first_party_identifier, address: row.first_party_address },
       secondParty: { id: row.second_party_id, name: row.second_party_name, phone: row.second_party_phone, identifier: row.second_party_identifier, address: row.second_party_address },
+      firstPartyPhoto: row.first_party_photo ?? null,
+      secondPartyPhoto: row.second_party_photo ?? null,
+      officeSnapshot: parseJson<OfficeSnapshot | null>(row.office_snapshot_json, null),
       paidAmount: row.paid_amount,
       remainingAmount: Math.max(0, row.amount - row.paid_amount),
       createdAt: row.created_at,
@@ -496,13 +547,22 @@ export class MaktoobDatabase {
 
   createContract(raw: ContractInput): Contract {
     const input = validateContract(raw);
+    const officeProfile = this.getOfficeProfile();
+    const officeSnapshot: OfficeSnapshot = {
+      officeName: officeProfile.officeName,
+      managerName: officeProfile.managerName,
+      phone: officeProfile.phone,
+      address: officeProfile.address,
+      footerNote: officeProfile.footerNote,
+      logoData: officeProfile.logoData ?? null,
+    };
     const id = this.db.transaction(() => {
       const template = input.templateId ? this.getTemplate(input.templateId) : null;
       const firstPartyId = this.insertParty(input.firstParty);
       const secondPartyId = this.insertParty(input.secondParty);
       const result = this.db.prepare(`INSERT INTO contracts
-        (contract_number, type, contract_date, status, amount, currency, notes, template_id, template_name_snapshot, clauses_snapshot, property_details_json, vehicle_details_json, first_party_id, second_party_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        (contract_number, type, contract_date, status, amount, currency, notes, template_id, template_name_snapshot, clauses_snapshot, property_details_json, vehicle_details_json, first_party_id, second_party_id, first_party_photo, second_party_photo, office_snapshot_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
         .run(
           this.nextContractNumber(),
           input.type,
@@ -517,7 +577,10 @@ export class MaktoobDatabase {
           input.propertyDetails ? JSON.stringify(input.propertyDetails) : '',
           input.vehicleDetails ? JSON.stringify(input.vehicleDetails) : '',
           firstPartyId,
-          secondPartyId
+          secondPartyId,
+          input.firstPartyPhoto ?? null,
+          input.secondPartyPhoto ?? null,
+          JSON.stringify(officeSnapshot)
         );
       return Number(result.lastInsertRowid);
     })();
@@ -535,7 +598,8 @@ export class MaktoobDatabase {
       updateParty.run(input.firstParty.name, input.firstParty.phone, input.firstParty.identifier, input.firstParty.address, current.firstParty.id);
       updateParty.run(input.secondParty.name, input.secondParty.phone, input.secondParty.identifier, input.secondParty.address, current.secondParty.id);
       this.db.prepare(`UPDATE contracts SET type=?, contract_date=?, status=?, amount=?, currency=?, notes=?,
-        template_id=?, template_name_snapshot=?, clauses_snapshot=?, property_details_json=?, vehicle_details_json=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+        template_id=?, template_name_snapshot=?, clauses_snapshot=?, property_details_json=?, vehicle_details_json=?,
+        first_party_photo=?, second_party_photo=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
         .run(
           input.type,
           input.contractDate,
@@ -548,6 +612,8 @@ export class MaktoobDatabase {
           templateChanged ? JSON.stringify(template?.clauses ?? []) : JSON.stringify(current.clauses),
           input.propertyDetails ? JSON.stringify(input.propertyDetails) : '',
           input.vehicleDetails ? JSON.stringify(input.vehicleDetails) : '',
+          input.firstPartyPhoto ?? null,
+          input.secondPartyPhoto ?? null,
           id
         );
     })();
@@ -622,6 +688,7 @@ export class MaktoobDatabase {
       address: String(row.address),
       footerNote: String(row.footer_note),
       logoData: row.logo_data ? String(row.logo_data) : null,
+      theme: (row.theme as OfficeTheme) || 'original',
     };
   }
 
@@ -630,15 +697,48 @@ export class MaktoobDatabase {
     this.db.prepare(`
       UPDATE office_profile
       SET office_name=?, manager_name=?, phone=?, address=?, footer_note=?,
+          theme=?,
           logo_data = CASE WHEN ? IS NOT NULL THEN ? ELSE logo_data END,
           updated_at=CURRENT_TIMESTAMP
       WHERE id=1
     `).run(
       input.officeName, input.managerName, input.phone, input.address, input.footerNote,
+      input.theme ?? 'original',
       input.logoData !== undefined ? (input.logoData || null) : null,
       input.logoData !== undefined ? (input.logoData || null) : null
     );
     return this.getOfficeProfile();
+  }
+
+  previewContractHtml(raw: ContractInput, customProfile?: OfficeProfile): string {
+    const input = validateContract(raw);
+    const template = input.templateId ? this.getTemplate(input.templateId) : null;
+    const profile = customProfile ? validateOfficeProfile(customProfile) : this.getOfficeProfile();
+    const virtualContract: Contract = {
+      id: 0,
+      contractNumber: 'معاينة-0000',
+      type: input.type,
+      contractDate: input.contractDate,
+      status: input.status,
+      amount: input.amount,
+      currency: input.currency,
+      notes: input.notes,
+      templateId: input.templateId,
+      templateName: template?.name ?? 'بنود العقد',
+      clauses: template?.clauses ?? [],
+      propertyDetails: input.propertyDetails ?? null,
+      vehicleDetails: input.vehicleDetails ?? null,
+      firstParty: { id: 0, ...input.firstParty },
+      secondParty: { id: 0, ...input.secondParty },
+      firstPartyPhoto: input.firstPartyPhoto ?? null,
+      secondPartyPhoto: input.secondPartyPhoto ?? null,
+      paidAmount: 0,
+      remainingAmount: input.amount,
+      payments: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    return contractHtml(virtualContract, profile);
   }
 
   deleteContract(id: number) {

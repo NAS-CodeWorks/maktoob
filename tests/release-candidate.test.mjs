@@ -604,7 +604,7 @@ test('RC-16: migrations run idempotently and safely record versions', async () =
         .prepare('SELECT version FROM schema_migrations ORDER BY version ASC')
         .all()
         .map((r) => r.version);
-      assert.deepEqual(versions, [1, 2, 3, 4, 5]);
+      assert.deepEqual(versions, [1, 2, 3, 4, 5, 6]);
     } finally {
       db.close();
     }

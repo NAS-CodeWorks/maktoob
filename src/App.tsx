@@ -19,6 +19,47 @@ import { TemplateForm } from './components/TemplateForm';
 
 type View = 'dashboard' | 'contracts' | 'templates' | 'parties' | 'payments' | 'backup' | 'settings';
 
+const viewMeta: Record<View, { title: string; subtitle: string; actionLabel?: string; actionType?: 'contract' | 'template' }> = {
+  dashboard: {
+    title: 'نظرة عامة',
+    subtitle: 'ملخص مؤشرات العقود والدفعات الحالية',
+    actionLabel: '+ عقد جديد',
+    actionType: 'contract',
+  },
+  contracts: {
+    title: 'العقود',
+    subtitle: 'سجل وإدارة عقود البيع والشراء',
+    actionLabel: '+ عقد جديد',
+    actionType: 'contract',
+  },
+  templates: {
+    title: 'قوالب العقود',
+    subtitle: 'مكتبة النماذج والبنود القانونية المعتمدة',
+    actionLabel: '+ قالب جديد',
+    actionType: 'template',
+  },
+  parties: {
+    title: 'الأطراف',
+    subtitle: 'دليل البائعين والمشترين وسجلاتهم',
+    actionLabel: '+ عقد جديد',
+    actionType: 'contract',
+  },
+  payments: {
+    title: 'الدفعات',
+    subtitle: 'حركة المقبوضات المالية وجداول السداد',
+    actionLabel: '+ عقد جديد',
+    actionType: 'contract',
+  },
+  backup: {
+    title: 'النسخ الاحتياطي',
+    subtitle: 'تأمين واستعادة قاعدة البيانات والوثائق',
+  },
+  settings: {
+    title: 'إعدادات المكتب',
+    subtitle: 'تخصيص هوية المستند ونمط الواجهة',
+  },
+};
+
 const navItems: Array<{ id: View; label: string; icon: string }> = [
   { id: 'dashboard', label: 'نظرة عامة', icon: '⌂' },
   { id: 'contracts', label: 'العقود', icon: '▤' },
@@ -94,6 +135,13 @@ export function App() {
 
   useEffect(() => {
     void window.maktoob.getLicenseState().then(setLicense).catch((caught) => setError(messageFrom(caught)));
+    void window.maktoob
+      .getOfficeProfile()
+      .then((profile) => {
+        setOfficeProfile(profile);
+        document.documentElement.setAttribute('data-theme', profile.theme || 'original');
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -182,7 +230,6 @@ export function App() {
     }
   };
 
-  const currentTitle = navItems.find((item) => item.id === view)!.label;
   const arabicDate = useMemo(
     () => new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'full' }).format(new Date()),
     []
@@ -214,6 +261,11 @@ export function App() {
           ))}
         </nav>
         <div className="office-card">
+          {officeProfile?.logoData && (
+            <div className="sidebar-office-logo-wrap">
+              <img src={officeProfile.logoData} alt="شعار المكتب" className="sidebar-office-logo" />
+            </div>
+          )}
           <span>نسخة المكتب</span>
           <strong>{officeProfile?.officeName ?? 'مكتب العقود'}</strong>
           <small>قاعدة البيانات محلية وآمنة</small>
@@ -221,51 +273,64 @@ export function App() {
       </aside>
 
       <main>
-        <header className="topbar">
-          <div>
-            <p>{arabicDate}</p>
-            <h1>{currentTitle}</h1>
-          </div>
-          {view === 'templates' ? (
-            <button className="primary" onClick={() => setEditingTemplate('new')}>
-              + قالب جديد
-            </button>
-          ) : (
-            view !== 'settings' && (
-              <button className="primary" onClick={openContractForm}>
-                + عقد جديد
-              </button>
-            )
-          )}
-        </header>
+        {(() => {
+          const meta = viewMeta[view];
+          const resultCount =
+            view === 'contracts'
+              ? contracts.length
+              : view === 'templates'
+              ? templates.length
+              : view === 'parties'
+              ? parties.length
+              : payments.length;
+          const isSearchable = view !== 'dashboard' && view !== 'backup' && view !== 'settings';
 
-        {error && (
-          <div className="page-error">
-            <strong>تعذر إكمال العملية</strong>
-            <span>{error}</span>
-            <button onClick={() => setError('')}>×</button>
-          </div>
-        )}
+          return (
+            <>
+              <header className="page-header">
+                <div className="page-header-info">
+                  <span className="page-header-date">{arabicDate}</span>
+                  <h1 className="page-title">{meta.title}</h1>
+                  <p className="page-subtitle">{meta.subtitle}</p>
+                </div>
+                {meta.actionLabel && (
+                  <div className="page-header-actions">
+                    <button
+                      className="primary"
+                      onClick={meta.actionType === 'template' ? () => setEditingTemplate('new') : openContractForm}
+                    >
+                      {meta.actionLabel}
+                    </button>
+                  </div>
+                )}
+              </header>
 
-        {view !== 'dashboard' && view !== 'backup' && view !== 'settings' && (
-          <div className="toolbar">
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={`ابحث في ${currentTitle}`}
-            />
-            <span>
-              {view === 'contracts'
-                ? contracts.length
-                : view === 'templates'
-                  ? templates.length
-                  : view === 'parties'
-                    ? parties.length
-                    : payments.length}{' '}
-              نتيجة
-            </span>
-          </div>
-        )}
+              {error && (
+                <div className="page-error">
+                  <strong>تعذر إكمال العملية</strong>
+                  <span>{error}</span>
+                  <button onClick={() => setError('')}>×</button>
+                </div>
+              )}
+
+              {isSearchable && (
+                <div className="toolbar">
+                  <div className="search-input-wrap">
+                    <input
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder={`ابحث في ${meta.title}…`}
+                      className="search-input"
+                    />
+                    <span className="results-count-badge">
+                      {resultCount} {resultCount === 1 ? 'نتيجة' : resultCount === 2 ? 'نتيجتان' : 'نتائج'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {loading ? (
           <div className="loading">جارٍ تحميل البيانات…</div>

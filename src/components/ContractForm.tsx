@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { Contract, ContractInput, ContractTemplate, PartySummary } from '../../shared/domain';
+import { PhotoPicker } from './PhotoPicker';
+import { ContractPreviewModal } from './ContractPreviewModal';
 
 const today = () => new Date().toISOString().slice(0, 10);
 const messageFrom = (error: unknown) =>
@@ -18,6 +20,8 @@ const defaultContractInput = (defaultTemplateId: number | null): ContractInput =
   vehicleDetails: null,
   firstParty: { name: '', phone: '', identifier: '', address: '' },
   secondParty: { name: '', phone: '', identifier: '', address: '' },
+  firstPartyPhoto: null,
+  secondPartyPhoto: null,
 });
 
 export function ContractForm({
@@ -57,6 +61,8 @@ export function ContractForm({
           identifier: contract.secondParty.identifier,
           address: contract.secondParty.address,
         },
+        firstPartyPhoto: contract.firstPartyPhoto ?? null,
+        secondPartyPhoto: contract.secondPartyPhoto ?? null,
       }
     : defaultContractInput(defaultTemplateId);
 
@@ -64,11 +70,15 @@ export function ContractForm({
     register,
     handleSubmit,
     setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<ContractInput>({ defaultValues: initialValues });
 
   const [error, setError] = useState('');
   const [selectedType, setSelectedType] = useState<string>(initialValues.type);
+  const [firstPartyPhoto, setFirstPartyPhoto] = useState<string | null>(initialValues.firstPartyPhoto ?? null);
+  const [secondPartyPhoto, setSecondPartyPhoto] = useState<string | null>(initialValues.secondPartyPhoto ?? null);
+  const [showPreview, setShowPreview] = useState(false);
 
   const onTypeChange = (newType: string) => {
     setSelectedType(newType);
@@ -102,6 +112,8 @@ export function ContractForm({
         ...input,
         propertyDetails: input.type === 'بيع عقار' ? input.propertyDetails : null,
         vehicleDetails: input.type === 'بيع مركبة' ? input.vehicleDetails : null,
+        firstPartyPhoto,
+        secondPartyPhoto,
       };
       if (contract) {
         await window.maktoob.updateContract(contract.id, payload);
@@ -293,24 +305,33 @@ export function ContractForm({
                     </select>
                   </div>
                 )}
-                <div className="form-grid">
-                  <label className="wide">
-                    <span>الاسم الكامل *</span>
-                    <input {...register(`${side}.name`, { required: true })} />
-                    {errors[side]?.name && <small>اسم الطرف مطلوب</small>}
-                  </label>
-                  <label>
-                    <span>رقم الهاتف</span>
-                    <input inputMode="tel" {...register(`${side}.phone`)} />
-                  </label>
-                  <label>
-                    <span>رقم الهوية</span>
-                    <input {...register(`${side}.identifier`)} />
-                  </label>
-                  <label className="wide">
-                    <span>العنوان</span>
-                    <input {...register(`${side}.address`)} />
-                  </label>
+                <div className="party-content-grid">
+                  <PhotoPicker
+                    label={index === 0 ? 'صورة الطرف الأول' : 'صورة الطرف الثاني'}
+                    value={side === 'firstParty' ? firstPartyPhoto : secondPartyPhoto}
+                    onChange={(photoUrl) =>
+                      side === 'firstParty' ? setFirstPartyPhoto(photoUrl) : setSecondPartyPhoto(photoUrl)
+                    }
+                  />
+                  <div className="form-grid">
+                    <label className="wide">
+                      <span>الاسم الكامل *</span>
+                      <input {...register(`${side}.name`, { required: true })} />
+                      {errors[side]?.name && <small>اسم الطرف مطلوب</small>}
+                    </label>
+                    <label>
+                      <span>رقم الهاتف</span>
+                      <input inputMode="tel" {...register(`${side}.phone`)} />
+                    </label>
+                    <label>
+                      <span>رقم الهوية</span>
+                      <input {...register(`${side}.identifier`)} />
+                    </label>
+                    <label className="wide">
+                      <span>العنوان</span>
+                      <input {...register(`${side}.address`)} />
+                    </label>
+                  </div>
                 </div>
               </fieldset>
             ))}
@@ -324,6 +345,13 @@ export function ContractForm({
           {error && <div className="form-error">{error}</div>}
 
           <footer className="modal-actions">
+            <button
+              type="button"
+              className="secondary btn-preview-action"
+              onClick={() => setShowPreview(true)}
+            >
+              👁️ معاينة العقد
+            </button>
             <button type="button" className="secondary" onClick={onClose}>
               إلغاء
             </button>
@@ -333,6 +361,19 @@ export function ContractForm({
           </footer>
         </form>
       </section>
+
+      {showPreview && (
+        <ContractPreviewModal
+          contractInput={{
+            ...getValues(),
+            propertyDetails: selectedType === 'بيع عقار' ? getValues('propertyDetails') : null,
+            vehicleDetails: selectedType === 'بيع مركبة' ? getValues('vehicleDetails') : null,
+            firstPartyPhoto,
+            secondPartyPhoto,
+          }}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   );
 }
