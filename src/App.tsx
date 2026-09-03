@@ -101,6 +101,18 @@ export function App() {
     if (license?.status === 'active') void load();
   }, [license?.status, load]);
 
+  useEffect(() => {
+    if (!license) return;
+    const timer = window.setTimeout(() => {
+      const overlay = document.getElementById('startup-overlay');
+      if (overlay) {
+        overlay.classList.add('fade-out');
+        window.setTimeout(() => overlay.remove(), 450);
+      }
+    }, 1800);
+    return () => window.clearTimeout(timer);
+  }, [license]);
+
   const changeView = (next: View) => {
     setQuery('');
     setView(next);

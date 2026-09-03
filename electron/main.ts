@@ -22,57 +22,13 @@ function resolveIconPath(): string | undefined {
   return undefined;
 }
 
-function resolveSplashPath(): string | undefined {
-  const candidates = [
-    app.isPackaged ? path.join(process.resourcesPath, 'branding', 'splash.html') : '',
-    path.join(app.getAppPath(), 'resources', 'branding', 'splash.html'),
-  ].filter(Boolean);
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  return undefined;
-}
-
-function createSplashWindow(iconPath?: string): BrowserWindow | null {
-  const splashPath = resolveSplashPath();
-  if (!splashPath) return null;
-
-  const splash = new BrowserWindow({
-    width: 480,
-    height: 320,
-    frame: false,
-    transparent: false,
-    backgroundColor: '#10251d',
-    center: true,
-    resizable: false,
-    movable: false,
-    minimizable: false,
-    maximizable: false,
-    skipTaskbar: false,
-    show: false,
-    alwaysOnTop: true,
-    ...(iconPath ? { icon: iconPath } : {}),
-    webPreferences: {
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
-
-  splash.removeMenu();
-  void splash.loadFile(splashPath);
-  splash.once('ready-to-show', () => splash.show());
-  return splash;
-}
-
 function createMainWindow(iconPath?: string): BrowserWindow {
   const window = new BrowserWindow({
     width: 1440,
     height: 900,
     minWidth: 1100,
     minHeight: 700,
-    backgroundColor: '#f3f5f2',
+    backgroundColor: '#10251D',
     show: false,
     ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: {
@@ -83,6 +39,7 @@ function createMainWindow(iconPath?: string): BrowserWindow {
     },
   });
 
+  // Remove native default development menu
   window.removeMenu();
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', (event, url) => {
@@ -90,6 +47,11 @@ function createMainWindow(iconPath?: string): BrowserWindow {
     if (!devServer || !url.startsWith(devServer)) event.preventDefault();
   });
   window.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+
+  // The window immediately reveals at full application bounds with the startup overlay active
+  window.once('ready-to-show', () => {
+    window.show();
+  });
 
   const devServer = process.env.VITE_DEV_SERVER_URL;
   if (devServer) void window.loadURL(devServer);
@@ -105,10 +67,8 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
 
   const iconPath = resolveIconPath();
-  const splashStartTime = Date.now();
-  const splash = createSplashWindow(iconPath);
 
-  // Initialize database and licensing in background while splash is active
+  // Initialize database and licensing
   database = new MaktoobDatabase(path.join(app.getPath('userData'), 'maktoob.sqlite'));
   const publicKeyPath = app.isPackaged
     ? path.join(process.resourcesPath, 'license-public.pem')
@@ -121,46 +81,12 @@ app.whenReady().then(async () => {
   await licenseManager.initialize();
   registerIpc(database, licenseManager);
 
-  // Create main window hidden
-  const mainWindow = createMainWindow(iconPath);
-
-  // Once main window is ready to show, transition smoothly from splash
-  mainWindow.once('ready-to-show', async () => {
-    if (splash && !splash.isDestroyed()) {
-      const elapsed = Date.now() - splashStartTime;
-      const minSplashDuration = 1800; // Optimal 1.8s perceived timing
-      const remaining = Math.max(0, minSplashDuration - elapsed);
-      if (remaining > 0) {
-        await new Promise((resolve) => setTimeout(resolve, remaining));
-      }
-
-      // Smooth fade-out transition
-      try {
-        if (!splash.isDestroyed()) {
-          await splash.webContents.executeJavaScript("document.body.classList.add('fade-out')", true);
-          await new Promise((resolve) => setTimeout(resolve, 350));
-        }
-      } catch {
-        // ignore if window closed
-      }
-
-      if (!mainWindow.isDestroyed()) {
-        mainWindow.show();
-      }
-      if (!splash.isDestroyed()) {
-        splash.destroy();
-      }
-    } else {
-      if (!mainWindow.isDestroyed()) {
-        mainWindow.show();
-      }
-    }
-  });
+  // Create single continuous application window
+  createMainWindow(iconPath);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      const win = createMainWindow(iconPath);
-      win.once('ready-to-show', () => win.show());
+      createMainWindow(iconPath);
     }
   });
 });
