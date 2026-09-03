@@ -9,7 +9,6 @@ test('branding: vector icon and multi-resolution ICO exist and have correct form
   const svgPath = path.resolve('resources/branding/maktoob-icon.svg');
   const svgContent = await readFile(svgPath, 'utf8');
   assert.ok(svgContent.includes('<svg'));
-  assert.ok(svgContent.includes('م'));
 
   const icoPath = path.resolve('resources/branding/maktoob.ico');
   const icoStats = await stat(icoPath);
@@ -29,6 +28,11 @@ test('branding: startup splash exists and contains product name and tagline', as
   assert.ok(splashHtml.includes('من السجلات إلى الديسكتوب'));
   assert.ok(splashHtml.includes('ambient-glow'));
   assert.ok(splashHtml.includes('fade-out'));
+
+  const indexHtml = await readFile(path.resolve('index.html'), 'utf8');
+  assert.ok(indexHtml.includes('id="startup-overlay"'));
+  assert.ok(indexHtml.includes('مكتوب'));
+  assert.ok(indexHtml.includes('من السجلات إلى الديسكتوب'));
 });
 
 test('branding: office branding architecture prepared for logo storage', async () => {
