@@ -30,7 +30,7 @@ export function ActivationScreen({
     <main className="activation-screen">
       <section className="activation-card">
         <div className="activation-brand">
-          <span className="brand-mark">م</span>
+          <img src="./branding/maktoob-256.png" alt="مكتوب" className="brand-logo-img" />
           <div>
             <strong>مكتوب</strong>
             <small>ترخيص جهاز واحد</small>
