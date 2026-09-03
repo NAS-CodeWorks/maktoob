@@ -165,6 +165,11 @@ function validateContract(input: ContractInput): ContractInput {
   };
 }
 
+function financialStatus(status: Contract['status'], amount: number, paidAmount: number): Contract['status'] {
+  if (status === 'draft') return 'draft';
+  return paidAmount >= amount ? 'completed' : 'pending_payment';
+}
+
 function validateTemplate(input: ContractTemplateInput): ContractTemplateInput {
   if (!input || typeof input !== 'object') throw new Error('بيانات القالب غير صالحة');
   if (!Array.isArray(input.clauses)) throw new Error('بنود القالب غير صالحة');
@@ -448,6 +453,23 @@ export class MaktoobDatabase {
       })();
       appliedVersions.add(6);
     }
+
+    if (!appliedVersions.has(7)) {
+      this.db.transaction(() => {
+        this.db.exec(`
+          UPDATE contracts
+          SET status = 'pending_payment', updated_at = CURRENT_TIMESTAMP
+          WHERE status = 'completed'
+            AND amount > COALESCE((SELECT SUM(amount) FROM payments WHERE contract_id = contracts.id), 0);
+          UPDATE contracts
+          SET status = 'completed', updated_at = CURRENT_TIMESTAMP
+          WHERE status = 'pending_payment'
+            AND amount <= COALESCE((SELECT SUM(amount) FROM payments WHERE contract_id = contracts.id), 0);
+          INSERT OR IGNORE INTO schema_migrations(version) VALUES (7);
+        `);
+      })();
+      appliedVersions.add(7);
+    }
   }
 
   close() {
@@ -547,6 +569,7 @@ export class MaktoobDatabase {
 
   createContract(raw: ContractInput): Contract {
     const input = validateContract(raw);
+    const status = financialStatus(input.status, input.amount, 0);
     const officeProfile = this.getOfficeProfile();
     const officeSnapshot: OfficeSnapshot = {
       officeName: officeProfile.officeName,
@@ -567,7 +590,7 @@ export class MaktoobDatabase {
           this.nextContractNumber(),
           input.type,
           input.contractDate,
-          input.status,
+          status,
           input.amount,
           input.currency,
           input.notes,
@@ -591,6 +614,7 @@ export class MaktoobDatabase {
     const input = validateContract(raw);
     const current = this.getContract(id);
     if (input.amount < current.paidAmount) throw new Error('لا يمكن جعل قيمة العقد أقل من مجموع الدفعات المسجلة');
+    const status = financialStatus(input.status, input.amount, current.paidAmount);
     this.db.transaction(() => {
       const templateChanged = input.templateId !== current.templateId;
       const template = templateChanged && input.templateId ? this.getTemplate(input.templateId) : null;
@@ -603,7 +627,7 @@ export class MaktoobDatabase {
         .run(
           input.type,
           input.contractDate,
-          input.status,
+          status,
           input.amount,
           input.currency,
           input.notes,
@@ -741,6 +765,14 @@ export class MaktoobDatabase {
     return contractHtml(virtualContract, profile);
   }
 
+  renderContractHtml(id: number): string {
+    const contract = this.getContract(id);
+    const profile: OfficeProfile = contract.officeSnapshot
+      ? { ...contract.officeSnapshot, theme: 'original' }
+      : this.getOfficeProfile();
+    return contractHtml(contract, profile);
+  }
+
   deleteContract(id: number) {
     const contract = this.getContract(id);
     this.db.transaction(() => {
@@ -764,11 +796,12 @@ export class MaktoobDatabase {
   addPayment(raw: PaymentInput): Payment {
     const input = validatePayment(raw);
     const contract = this.getContract(input.contractId);
+    if (contract.status === 'draft') throw new Error('اعتمد العقد أولاً قبل تسجيل الدفعات');
     if (input.amount > contract.remainingAmount) throw new Error('قيمة الدفعة أكبر من المبلغ المتبقي');
     const id = this.db.transaction(() => {
       const result = this.db.prepare('INSERT INTO payments(contract_id, amount, payment_date, method, note) VALUES (?, ?, ?, ?, ?)')
         .run(input.contractId, input.amount, input.paymentDate, input.method, input.note);
-      if (input.amount === contract.remainingAmount && contract.status === 'pending_payment') {
+      if (input.amount === contract.remainingAmount && contract.status !== 'draft') {
         this.db.prepare("UPDATE contracts SET status='completed', updated_at=CURRENT_TIMESTAMP WHERE id=?").run(input.contractId);
       }
       return Number(result.lastInsertRowid);
@@ -778,8 +811,15 @@ export class MaktoobDatabase {
 
   deletePayment(id: number) {
     if (!Number.isInteger(id) || id <= 0) throw new Error('رقم الدفعة غير صالح');
-    const result = this.db.prepare('DELETE FROM payments WHERE id=?').run(id);
-    if (!result.changes) throw new Error('الدفعة غير موجودة');
+    const payment = this.db.prepare('SELECT contract_id FROM payments WHERE id=?').get(id) as { contract_id: number } | undefined;
+    if (!payment) throw new Error('الدفعة غير موجودة');
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM payments WHERE id=?').run(id);
+      const contract = this.getContract(payment.contract_id);
+      if (contract.status === 'completed' && contract.remainingAmount > 0) {
+        this.db.prepare("UPDATE contracts SET status='pending_payment', updated_at=CURRENT_TIMESTAMP WHERE id=?").run(payment.contract_id);
+      }
+    })();
   }
 
   listParties(query = ''): PartySummary[] {
@@ -812,11 +852,21 @@ export class MaktoobDatabase {
   dashboard(): DashboardSummary {
     const totals = this.db.prepare(`SELECT COUNT(*) AS total,
       SUM(CASE WHEN strftime('%Y-%m', contract_date)=strftime('%Y-%m','now','localtime') THEN 1 ELSE 0 END) AS current_month,
-      COALESCE(SUM(CASE WHEN currency='IQD' THEN amount ELSE 0 END),0) AS value_iqd FROM contracts`).get() as Record<string, number>;
-    const paid = this.db.prepare(`SELECT COALESCE(SUM(p.amount),0) AS total FROM payments p JOIN contracts c ON c.id=p.contract_id WHERE c.currency='IQD'`).get() as { total: number };
+      COALESCE(SUM(CASE WHEN currency='IQD' AND status<>'draft' THEN amount ELSE 0 END),0) AS value_iqd,
+      COALESCE(SUM(CASE WHEN currency='USD' AND status<>'draft' THEN amount ELSE 0 END),0) AS value_usd
+      FROM contracts`).get() as Record<string, number>;
+    const paid = this.db.prepare(`SELECT
+      COALESCE(SUM(CASE WHEN c.currency='IQD' THEN p.amount ELSE 0 END),0) AS total_iqd,
+      COALESCE(SUM(CASE WHEN c.currency='USD' THEN p.amount ELSE 0 END),0) AS total_usd
+      FROM payments p JOIN contracts c ON c.id=p.contract_id`).get() as { total_iqd: number; total_usd: number };
     return {
-      totalContracts: Number(totals.total), currentMonthContracts: Number(totals.current_month), receivedIQD: Number(paid.total),
-      pendingIQD: Math.max(0, Number(totals.value_iqd) - Number(paid.total)), recentContracts: this.listContracts().slice(0, 6),
+      totalContracts: Number(totals.total),
+      currentMonthContracts: Number(totals.current_month),
+      receivedIQD: Number(paid.total_iqd),
+      pendingIQD: Math.max(0, Number(totals.value_iqd) - Number(paid.total_iqd)),
+      receivedUSD: Number(paid.total_usd),
+      pendingUSD: Math.max(0, Number(totals.value_usd) - Number(paid.total_usd)),
+      recentContracts: this.listContracts().slice(0, 6),
     };
   }
 }

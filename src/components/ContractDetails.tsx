@@ -250,7 +250,7 @@ export function ContractDetails({
           )}
         </section>
 
-        {contract.remainingAmount > 0 && (
+        {contract.remainingAmount > 0 && contract.status !== 'draft' && (
           <form className="payment-form" onSubmit={handleSubmit(addPayment)}>
             <input type="hidden" {...register('contractId', { valueAsNumber: true })} />
             <label>
@@ -290,21 +290,7 @@ export function ContractDetails({
 
       {showPreview && (
         <ContractPreviewModal
-          contractInput={{
-            type: contract.type,
-            contractDate: contract.contractDate,
-            status: contract.status,
-            amount: contract.amount,
-            currency: contract.currency,
-            notes: contract.notes,
-            templateId: contract.templateId,
-            propertyDetails: contract.propertyDetails,
-            vehicleDetails: contract.vehicleDetails,
-            firstParty: contract.firstParty,
-            secondParty: contract.secondParty,
-            firstPartyPhoto: contract.firstPartyPhoto,
-            secondPartyPhoto: contract.secondPartyPhoto,
-          }}
+          contractId={contract.id}
           onClose={() => setShowPreview(false)}
           onPrint={printContract}
           onExportPdf={exportPdf}

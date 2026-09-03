@@ -351,13 +351,19 @@ export function App() {
                   </article>
                   <article>
                     <span>المبالغ المستلمة</span>
-                    <strong>{formatMoney(dashboard.receivedIQD)}</strong>
-                    <small className="positive">دفعات الدينار العراقي</small>
+                    <div className="currency-stack">
+                      <strong>{formatMoney(dashboard.receivedIQD)}</strong>
+                      <strong>{formatMoney(dashboard.receivedUSD, 'USD')}</strong>
+                    </div>
+                    <small className="positive">إجمالي الدفعات حسب العملة</small>
                   </article>
                   <article>
                     <span>المبالغ المتبقية</span>
-                    <strong>{formatMoney(dashboard.pendingIQD)}</strong>
-                    <small className="warning">تحتاج متابعة</small>
+                    <div className="currency-stack">
+                      <strong>{formatMoney(dashboard.pendingIQD)}</strong>
+                      <strong>{formatMoney(dashboard.pendingUSD, 'USD')}</strong>
+                    </div>
+                    <small className="warning">الأرصدة الفعلية التي تحتاج متابعة</small>
                   </article>
                 </section>
                 <section className="panel">

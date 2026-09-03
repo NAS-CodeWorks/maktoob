@@ -492,7 +492,7 @@ test('RC-10: search contracts, parties and payments with Arabic keywords', async
     const c = database.createContract({
       type: 'بيع عقار',
       contractDate: '2026-09-02',
-      status: 'draft',
+      status: 'pending_payment',
       amount: 45000000,
       currency: 'IQD',
       notes: 'منطقة الكرادة مسبح',
@@ -604,7 +604,7 @@ test('RC-16: migrations run idempotently and safely record versions', async () =
         .prepare('SELECT version FROM schema_migrations ORDER BY version ASC')
         .all()
         .map((r) => r.version);
-      assert.deepEqual(versions, [1, 2, 3, 4, 5, 6]);
+      assert.deepEqual(versions, [1, 2, 3, 4, 5, 6, 7]);
     } finally {
       db.close();
     }

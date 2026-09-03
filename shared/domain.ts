@@ -123,6 +123,8 @@ export type DashboardSummary = {
   currentMonthContracts: number;
   receivedIQD: number;
   pendingIQD: number;
+  receivedUSD: number;
+  pendingUSD: number;
   recentContracts: ContractListItem[];
 };
 
@@ -184,6 +186,7 @@ export type MaktoobAPI = {
   updateContract: (id: number, input: ContractInput) => Promise<Contract>;
   deleteContract: (id: number) => Promise<void>;
   previewContractHtml: (input: ContractInput, profile?: OfficeProfile) => Promise<string>;
+  renderContractHtml: (id: number) => Promise<string>;
   listTemplates: (query?: string) => Promise<ContractTemplate[]>;
   createTemplate: (input: ContractTemplateInput) => Promise<ContractTemplate>;
   updateTemplate: (id: number, input: ContractTemplateInput) => Promise<ContractTemplate>;

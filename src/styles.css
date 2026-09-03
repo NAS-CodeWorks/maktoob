@@ -105,6 +105,10 @@ body {
   color: var(--text-main);
 }
 
+#root {
+  height: 100%;
+}
+
 button, input, select, textarea {
   font: inherit;
 }
@@ -116,7 +120,8 @@ button {
 
 /* App Shell & Sidebar */
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   display: grid;
   grid-template-columns: 260px 1fr;
   direction: rtl;
@@ -244,7 +249,8 @@ main {
   background: var(--workspace-bg);
   padding: 32px 44px;
   overflow-y: auto;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
 }
 
 /* Unified Page Header */
@@ -397,6 +403,18 @@ main {
   color: var(--text-main);
 }
 
+.stats .currency-stack {
+  display: grid;
+  gap: 2px;
+  margin: 7px 0;
+}
+
+.stats .currency-stack strong {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.45;
+}
+
 .stats small {
   color: var(--text-muted);
   font-size: 11px;
@@ -419,6 +437,54 @@ main {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+/* Backup and restore workspace */
+.backup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  max-width: 980px;
+}
+
+.backup-grid article {
+  display: flex;
+  min-height: 260px;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 28px;
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(16, 37, 29, 0.06);
+}
+
+.backup-grid h2 {
+  margin: 18px 0 8px;
+  font-size: 20px;
+}
+
+.backup-grid p {
+  margin: 0 0 24px;
+  color: var(--text-muted);
+  line-height: 1.9;
+}
+
+.backup-grid button {
+  margin-top: auto;
+}
+
+.feature-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--shell-bg);
+  color: var(--accent);
+  font-size: 24px;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--shell-border);
 }
 
 .card {
@@ -1455,6 +1521,9 @@ tbody tr:hover {
     grid-template-columns: repeat(2, 1fr);
   }
   .theme-selector-grid {
+    grid-template-columns: 1fr;
+  }
+  .backup-grid {
     grid-template-columns: 1fr;
   }
 }

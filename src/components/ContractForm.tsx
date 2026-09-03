@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import type { Contract, ContractInput, ContractTemplate, PartySummary } from '../../shared/domain';
 import { PhotoPicker } from './PhotoPicker';
 import { ContractPreviewModal } from './ContractPreviewModal';
@@ -71,8 +71,11 @@ export function ContractForm({
     handleSubmit,
     setValue,
     getValues,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<ContractInput>({ defaultValues: initialValues });
+  const amount = Number(useWatch({ control, name: 'amount' }) || 0);
+  const paidAmount = contract?.paidAmount ?? 0;
 
   const [error, setError] = useState('');
   const [selectedType, setSelectedType] = useState<string>(initialValues.type);
@@ -173,7 +176,7 @@ export function ContractForm({
               <select {...register('status')}>
                 <option value="draft">مسودة</option>
                 <option value="pending_payment">بانتظار الدفع</option>
-                <option value="completed">مكتمل</option>
+                <option value="completed" disabled={amount > paidAmount}>مكتمل — يتطلب تسديد كامل القيمة</option>
               </select>
             </label>
 

@@ -3,7 +3,7 @@ import type { ContractInput, ContractTemplateInput, MaktoobAPI, OfficeProfile, P
 
 const api: MaktoobAPI = {
   platform: process.platform,
-  version: '1.0.0',
+  version: '1.1.0',
   getLicenseState: () => ipcRenderer.invoke('license:status'),
   importLicense: () => ipcRenderer.invoke('license:import'),
   dashboard: () => ipcRenderer.invoke('dashboard:get'),
@@ -13,6 +13,7 @@ const api: MaktoobAPI = {
   updateContract: (id: number, input: ContractInput) => ipcRenderer.invoke('contracts:update', id, input),
   deleteContract: (id: number) => ipcRenderer.invoke('contracts:delete', id),
   previewContractHtml: (input: ContractInput, profile?: OfficeProfile) => ipcRenderer.invoke('contracts:preview-html', input, profile),
+  renderContractHtml: (id: number) => ipcRenderer.invoke('contracts:render-html', id),
   listTemplates: (query?: string) => ipcRenderer.invoke('templates:list', query),
   createTemplate: (input: ContractTemplateInput) => ipcRenderer.invoke('templates:create', input),
   updateTemplate: (id: number, input: ContractTemplateInput) => ipcRenderer.invoke('templates:update', id, input),

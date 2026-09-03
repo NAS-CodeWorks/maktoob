@@ -177,3 +177,126 @@ test('live contract preview: generates identical A4 HTML with photos and logo wi
     cleanup();
   }
 });
+
+test('saved contract preview preserves the real number, payments, clauses, and office snapshot', () => {
+  const { database, cleanup } = createTempDb();
+  try {
+    database.updateOfficeProfile({
+      officeName: 'مكتب المعاينة الفعلي',
+      managerName: 'مدير المكتب',
+      phone: '07700000000',
+      address: 'بغداد',
+      footerNote: 'تذييل رسمي',
+      logoData: mockLogo,
+      theme: 'original',
+    });
+    const contract = database.createContract({
+      type: 'بيع عام',
+      contractDate: '2026-09-03',
+      status: 'pending_payment',
+      amount: 1000000,
+      currency: 'IQD',
+      notes: 'عقد محفوظ',
+      templateId: null,
+      firstParty: { name: 'البائع', phone: '', identifier: '', address: '' },
+      secondParty: { name: 'المشتري', phone: '', identifier: '', address: '' },
+    });
+    database.addPayment({
+      contractId: contract.id,
+      amount: 250000,
+      paymentDate: '2026-09-03',
+      method: 'تحويل مصرفي',
+      note: 'دفعة مثبتة',
+    });
+
+    const html = database.renderContractHtml(contract.id);
+    assert.ok(html.includes(contract.contractNumber));
+    assert.ok(!html.includes('معاينة-0000'));
+    assert.ok(html.includes('دفعة مثبتة'));
+    assert.ok(html.includes('مكتب المعاينة الفعلي'));
+    assert.ok(html.includes('تذييل رسمي'));
+  } finally {
+    cleanup();
+  }
+});
+
+test('financial status follows the recorded balance and recovers after deleting a payment', () => {
+  const { database, cleanup } = createTempDb();
+  try {
+    const contract = database.createContract({
+      type: 'بيع عام',
+      contractDate: '2026-09-03',
+      status: 'completed',
+      amount: 500000,
+      currency: 'IQD',
+      notes: '',
+      templateId: null,
+      firstParty: { name: 'البائع', phone: '', identifier: '', address: '' },
+      secondParty: { name: 'المشتري', phone: '', identifier: '', address: '' },
+    });
+    assert.equal(contract.status, 'pending_payment');
+
+    const payment = database.addPayment({
+      contractId: contract.id,
+      amount: 500000,
+      paymentDate: '2026-09-03',
+      method: 'نقدي',
+      note: '',
+    });
+    assert.equal(database.getContract(contract.id).status, 'completed');
+
+    database.deletePayment(payment.id);
+    assert.equal(database.getContract(contract.id).status, 'pending_payment');
+  } finally {
+    cleanup();
+  }
+});
+
+test('dashboard reports IQD and USD balances independently and excludes draft values', () => {
+  const { database, cleanup } = createTempDb();
+  try {
+    const active = database.createContract({
+      type: 'بيع مركبة', contractDate: '2026-09-03', status: 'pending_payment', amount: 1000, currency: 'USD', notes: '', templateId: null,
+      firstParty: { name: 'البائع', phone: '', identifier: '', address: '' },
+      secondParty: { name: 'المشتري', phone: '', identifier: '', address: '' },
+    });
+    database.addPayment({ contractId: active.id, amount: 250, paymentDate: '2026-09-03', method: 'نقدي', note: '' });
+    database.createContract({
+      type: 'مسودة', contractDate: '2026-09-03', status: 'draft', amount: 9999, currency: 'USD', notes: '', templateId: null,
+      firstParty: { name: 'طرف أول', phone: '', identifier: '', address: '' },
+      secondParty: { name: 'طرف ثان', phone: '', identifier: '', address: '' },
+    });
+
+    const dashboard = database.dashboard();
+    assert.equal(dashboard.receivedUSD, 250);
+    assert.equal(dashboard.pendingUSD, 750);
+    assert.equal(dashboard.receivedIQD, 0);
+    assert.equal(dashboard.pendingIQD, 0);
+  } finally {
+    cleanup();
+  }
+});
+
+test('A4 output reserves print margins and repeats header and footer on every page', () => {
+  const { database, cleanup } = createTempDb();
+  try {
+    const contract = database.createContract({
+      type: 'بيع عام',
+      contractDate: '2026-09-03',
+      status: 'draft',
+      amount: 0,
+      currency: 'IQD',
+      notes: '',
+      templateId: null,
+      firstParty: { name: 'البائع', phone: '', identifier: '', address: '' },
+      secondParty: { name: 'المشتري', phone: '', identifier: '', address: '' },
+    });
+    const html = database.renderContractHtml(contract.id);
+    assert.match(html, /@page\s*\{[\s\S]*margin:\s*28mm 14mm 20mm 14mm/);
+    assert.match(html, /@media print[\s\S]*header\s*\{[\s\S]*position:\s*fixed/);
+    assert.match(html, /@media print[\s\S]*footer\s*\{[\s\S]*position:\s*fixed/);
+    assert.ok(html.includes('class="document-content"'));
+  } finally {
+    cleanup();
+  }
+});

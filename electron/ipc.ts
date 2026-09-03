@@ -22,6 +22,9 @@ export function registerIpc(database: MaktoobDatabase, licenseManager: LicenseMa
   ipcMain.handle('contracts:preview-html', (_event, input: ContractInput, profile?: OfficeProfile) =>
     licensed(() => database.previewContractHtml(input, profile))
   );
+  ipcMain.handle('contracts:render-html', (_event, id: number) =>
+    licensed(() => database.renderContractHtml(id))
+  );
   ipcMain.handle('templates:list', (_event, query?: string) => licensed(() => database.listTemplates(query)));
   ipcMain.handle('templates:create', (_event, input: ContractTemplateInput) => licensed(() => database.createTemplate(input)));
   ipcMain.handle('templates:update', (_event, id: number, input: ContractTemplateInput) => licensed(() => database.updateTemplate(id, input)));

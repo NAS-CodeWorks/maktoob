@@ -31,7 +31,7 @@ export function contractHtml(contract: Contract, profile: OfficeProfile): string
   return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><style>
     @page {
       size: A4 portrait;
-      margin: 12mm 14mm 10mm 14mm;
+      margin: 28mm 14mm 20mm 14mm;
     }
     * {
       box-sizing: border-box;
@@ -42,7 +42,10 @@ export function contractHtml(contract: Contract, profile: OfficeProfile): string
       font-size: 11.5px;
       line-height: 1.55;
       margin: 0;
-      padding: 0;
+      padding: 12mm 14mm 10mm;
+      min-height: 297mm;
+      display: flex;
+      flex-direction: column;
     }
     header {
       display: flex;
@@ -133,8 +136,6 @@ export function contractHtml(contract: Contract, profile: OfficeProfile): string
     }
     .clauses {
       margin-top: 10px;
-      break-inside: avoid;
-      page-break-inside: avoid;
     }
     .clauses h2 {
       font-size: 13px;
@@ -147,13 +148,16 @@ export function contractHtml(contract: Contract, profile: OfficeProfile): string
     }
     .clauses li {
       margin-bottom: 4px;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 10px;
-      break-inside: avoid;
-      page-break-inside: avoid;
+    }
+    thead {
+      display: table-header-group;
     }
     tr {
       break-inside: avoid;
@@ -170,8 +174,6 @@ export function contractHtml(contract: Contract, profile: OfficeProfile): string
     }
     .bottom-section {
       margin-top: 10px;
-      break-inside: avoid;
-      page-break-inside: avoid;
     }
     .summary {
       margin-right: auto;
@@ -195,11 +197,42 @@ export function contractHtml(contract: Contract, profile: OfficeProfile): string
       break-inside: avoid;
       page-break-inside: avoid;
     }
+    .document-content {
+      flex: 1;
+    }
     .office-contact {
       margin-top: 3px;
     }
+    @media print {
+      body {
+        display: block;
+        min-height: auto;
+        padding: 0;
+      }
+      header {
+        position: fixed;
+        top: -19mm;
+        right: 0;
+        left: 0;
+        height: 16mm;
+        margin: 0;
+      }
+      footer {
+        position: fixed;
+        right: 0;
+        bottom: -13mm;
+        left: 0;
+        height: 10mm;
+        margin: 0;
+      }
+      .clauses h2 {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+    }
   </style></head><body>
     <header><div class="header-brand">${profile.logoData ? `<img src="${profile.logoData}" class="office-logo" alt="شعار المكتب" />` : ''}<div><h1>${escapeHtml(profile.officeName)}</h1><div class="muted">${profile.managerName ? `المسؤول: ${escapeHtml(profile.managerName)}` : 'نظام إدارة العقود'}</div></div></div><div><strong>${escapeHtml(contract.contractNumber)}</strong><br><span class="muted">${escapeHtml(status)}</span></div></header>
+    <main class="document-content">
     <div class="meta"><div class="box"><span class="muted">نوع العقد</span><br><strong>${escapeHtml(contract.type)}</strong></div><div class="box"><span class="muted">تاريخ العقد</span><br><strong>${escapeHtml(contract.contractDate)}</strong></div><div class="box"><span class="muted">قيمة العقد</span><br><strong>${money(contract.amount, contract.currency)}</strong></div></div>
     ${contract.propertyDetails ? `<section class="box property-details"><h2 style="font-size:13px;margin:0 0 6px;color:#795f2f">بيانات العقار / المبيع</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px"><div><span class="muted">نوع العقار: </span><strong>${escapeHtml(contract.propertyDetails.propertyType || '—')}</strong></div><div><span class="muted">رقم القطعة: </span><strong>${escapeHtml(contract.propertyDetails.plotNumber || '—')}</strong></div><div><span class="muted">المقاطعة: </span><strong>${escapeHtml(contract.propertyDetails.districtNumber || '—')}</strong></div><div><span class="muted">المساحة: </span><strong>${escapeHtml(contract.propertyDetails.area || '—')}</strong></div><div><span class="muted">المحافظة: </span><strong>${escapeHtml(contract.propertyDetails.governorate || '—')}</strong></div><div><span class="muted">القضاء/الناحية: </span><strong>${escapeHtml(contract.propertyDetails.cityDistrict || '—')}</strong></div></div>${contract.propertyDetails.locationNotes ? `<div style="margin-top:6px;padding-top:4px;border-top:1px dashed #d9dfdb"><span class="muted">الموقع والحدود: </span>${escapeHtml(contract.propertyDetails.locationNotes)}</div>` : ''}</section>` : ''}
     ${contract.vehicleDetails ? `<section class="box vehicle-details"><h2 style="font-size:13px;margin:0 0 6px;color:#795f2f">بيانات المركبة / المبيع</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px"><div><span class="muted">الماركة/الشركة: </span><strong>${escapeHtml(contract.vehicleDetails.make || '—')}</strong></div><div><span class="muted">الموديل/الطراز: </span><strong>${escapeHtml(contract.vehicleDetails.model || '—')}</strong></div><div><span class="muted">سنة الصنع: </span><strong>${escapeHtml(contract.vehicleDetails.year || '—')}</strong></div><div><span class="muted">اللون: </span><strong>${escapeHtml(contract.vehicleDetails.color || '—')}</strong></div><div><span class="muted">رقم الهيكل: </span><strong style="direction:ltr;display:inline-block">${escapeHtml(contract.vehicleDetails.chassisNumber || '—')}</strong></div><div><span class="muted">رقم اللوحة: </span><strong>${escapeHtml(contract.vehicleDetails.plateNumber || '—')}</strong></div></div></section>` : ''}
@@ -210,7 +243,8 @@ export function contractHtml(contract: Contract, profile: OfficeProfile): string
     <div class="bottom-section">
       <table><thead><tr><th>تاريخ الدفعة</th><th>طريقة الدفع</th><th>المبلغ</th><th>ملاحظة</th></tr></thead><tbody>${paymentRows}</tbody></table>
       <div class="summary"><div><span>قيمة العقد</span><strong>${money(contract.amount, contract.currency)}</strong></div><div><span>المستلم</span><strong>${money(contract.paidAmount, contract.currency)}</strong></div><div><span>المتبقي</span><strong>${money(contract.remainingAmount, contract.currency)}</strong></div></div>
-      <footer>${escapeHtml(profile.footerNote || 'أُنشئ بواسطة نظام مكتوب — NAS CodeWorks')}<div class="office-contact">${[profile.phone, profile.address].filter(Boolean).map(escapeHtml).join(' · ')}</div></footer>
     </div>
+    </main>
+    <footer>${escapeHtml(profile.footerNote || 'أُنشئ بواسطة نظام مكتوب — NAS CodeWorks')}<div class="office-contact">${[profile.phone, profile.address].filter(Boolean).map(escapeHtml).join(' · ')}</div></footer>
   </body></html>`;
 }

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { ContractInput, OfficeProfile } from '../../shared/domain';
 
 type ContractPreviewModalProps = {
-  contractInput: ContractInput;
+  contractInput?: ContractInput;
+  contractId?: number;
   officeProfile?: OfficeProfile | null;
   onClose: () => void;
   onExportPdf?: () => void;
@@ -11,6 +12,7 @@ type ContractPreviewModalProps = {
 
 export function ContractPreviewModal({
   contractInput,
+  contractId,
   officeProfile,
   onClose,
   onExportPdf,
@@ -28,7 +30,10 @@ export function ContractPreviewModal({
       setLoading(true);
       setError('');
       try {
-        const html = await window.maktoob.previewContractHtml(contractInput, officeProfile ?? undefined);
+        if (contractId === undefined && !contractInput) throw new Error('بيانات المعاينة غير مكتملة');
+        const html = contractId !== undefined
+          ? await window.maktoob.renderContractHtml(contractId)
+          : await window.maktoob.previewContractHtml(contractInput!, officeProfile ?? undefined);
         if (!cancelled) {
           setHtmlContent(html);
         }
@@ -46,7 +51,7 @@ export function ContractPreviewModal({
     return () => {
       cancelled = true;
     };
-  }, [contractInput, officeProfile]);
+  }, [contractId, contractInput, officeProfile]);
 
   const handleZoomIn = () => setZoom((z) => Math.min(160, z + 10));
   const handleZoomOut = () => setZoom((z) => Math.max(50, z - 10));
