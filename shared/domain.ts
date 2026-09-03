@@ -130,6 +130,7 @@ export type OfficeProfile = {
   phone: string;
   address: string;
   footerNote: string;
+  logoData?: string | null;
 };
 
 export type LicensePayload = {

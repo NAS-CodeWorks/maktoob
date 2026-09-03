@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مكتوب</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: #10251d;
+      background-image: radial-gradient(circle at 50% 40%, #17372b 0%, #0d1e17 75%, #08140f 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: #eef5f1;
+      transition: opacity 0.35s ease-out;
+    }
+
+    body.fade-out {
+      opacity: 0;
+    }
+
+    .splash-container {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Ambient Warm Gold Glow behind the mark */
+    .ambient-glow {
+      position: absolute;
+      top: 32%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(197, 166, 100, 0.45) 0%, rgba(184, 149, 78, 0.18) 45%, rgba(16, 37, 29, 0) 70%);
+      opacity: 0;
+      animation: glowBloom 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards;
+      pointer-events: none;
+    }
+
+    /* Maktoob 'م' Mark */
+    .mark-wrapper {
+      position: relative;
+      width: 104px;
+      height: 104px;
+      margin-bottom: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transform: scale(0.94);
+      animation: markEntrance 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards;
+      z-index: 2;
+    }
+
+    .mark-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.35));
+    }
+
+    /* Wordmark & Tagline */
+    .text-group {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 2;
+      opacity: 0;
+      transform: translateY(6px);
+      animation: textFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.65s forwards;
+    }
+
+    .product-title {
+      font-size: 34px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 0.5px;
+      line-height: 1.2;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+    }
+
+    .product-tagline {
+      font-size: 13.5px;
+      font-weight: 400;
+      color: #9cb1a6;
+      margin-top: 6px;
+      letter-spacing: 0.2px;
+    }
+
+    /* Stage Animations */
+    @keyframes markEntrance {
+      0% {
+        opacity: 0;
+        transform: scale(0.94);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1.0);
+      }
+    }
+
+    @keyframes glowBloom {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.7);
+      }
+      60% {
+        opacity: 0.9;
+      }
+      100% {
+        opacity: 0.75;
+        transform: translate(-50%, -50%) scale(1.0);
+      }
+    }
+
+    @keyframes textFadeIn {
+      0% {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="splash-container">
+    <div class="ambient-glow"></div>
+    <div class="mark-wrapper">
+      <img src="maktoob-mark-256.png" alt="مكتوب" class="mark-image" />
+    </div>
+    <div class="text-group">
+      <h1 class="product-title">مكتوب</h1>
+      <p class="product-tagline">من السجلات إلى الديسكتوب</p>
+    </div>
+  </div>
+</body>
+</html>

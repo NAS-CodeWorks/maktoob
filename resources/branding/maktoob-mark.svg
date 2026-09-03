@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="mark-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ddbe7c"/>
+      <stop offset="100%" stop-color="#b8954e"/>
+    </linearGradient>
+    <filter id="mark-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+  <g filter="url(#mark-glow)">
+    <text x="50%" y="52%" dominant-baseline="central" text-anchor="middle" font-family="'Segoe UI', Tahoma, sans-serif" font-weight="bold" font-size="160" fill="url(#mark-gold)">م</text>
+  </g>
+</svg>
