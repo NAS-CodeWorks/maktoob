@@ -65,16 +65,25 @@
       {
         "from": "resources/license-public.pem",
         "to": "license-public.pem"
+      },
+      {
+        "from": "resources/branding",
+        "to": "branding"
       }
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "resources/branding/maktoob.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "installerIcon": "resources/branding/maktoob.ico",
+      "uninstallerIcon": "resources/branding/maktoob.ico",
+      "uninstallDisplayName": "مكتوب",
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "shortcutName": "مكتوب"
     }
   }
 }

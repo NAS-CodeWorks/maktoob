@@ -163,12 +163,24 @@ function validateTemplate(input: ContractTemplateInput): ContractTemplateInput {
 
 function validateOfficeProfile(input: OfficeProfile): OfficeProfile {
   if (!input || typeof input !== 'object') throw new Error('بيانات المكتب غير صالحة');
+  let logoData: string | null | undefined = undefined;
+  if (input.logoData !== undefined) {
+    if (input.logoData === null || input.logoData === '') {
+      logoData = null;
+    } else if (typeof input.logoData === 'string') {
+      if (input.logoData.length > 500000) throw new Error('حجم شعار المكتب كبير جداً');
+      logoData = input.logoData;
+    } else {
+      throw new Error('شعار المكتب غير صالح');
+    }
+  }
   return {
     officeName: cleanText(input.officeName, 'اسم المكتب', true),
     managerName: cleanText(input.managerName, 'اسم المسؤول'),
     phone: cleanText(input.phone, 'هاتف المكتب'),
     address: cleanText(input.address, 'عنوان المكتب'),
     footerNote: cleanText(input.footerNote, 'تذييل المستند'),
+    ...(logoData !== undefined ? { logoData } : {}),
   };
 }
 
@@ -376,6 +388,17 @@ export class MaktoobDatabase {
         this.db.exec('INSERT OR IGNORE INTO schema_migrations(version) VALUES (4);');
       })();
       appliedVersions.add(4);
+    }
+
+    if (!appliedVersions.has(5)) {
+      this.db.transaction(() => {
+        const profileColumns = this.db.prepare('PRAGMA table_info(office_profile)').all() as Array<{ name: string }>;
+        if (!profileColumns.some((column) => column.name === 'logo_data')) {
+          this.db.exec('ALTER TABLE office_profile ADD COLUMN logo_data TEXT DEFAULT NULL');
+        }
+        this.db.exec('INSERT OR IGNORE INTO schema_migrations(version) VALUES (5);');
+      })();
+      appliedVersions.add(5);
     }
   }
 
@@ -598,13 +621,23 @@ export class MaktoobDatabase {
       phone: String(row.phone),
       address: String(row.address),
       footerNote: String(row.footer_note),
+      logoData: row.logo_data ? String(row.logo_data) : null,
     };
   }
 
   updateOfficeProfile(raw: OfficeProfile): OfficeProfile {
     const input = validateOfficeProfile(raw);
-    this.db.prepare(`UPDATE office_profile SET office_name=?, manager_name=?, phone=?, address=?, footer_note=?, updated_at=CURRENT_TIMESTAMP WHERE id=1`)
-      .run(input.officeName, input.managerName, input.phone, input.address, input.footerNote);
+    this.db.prepare(`
+      UPDATE office_profile
+      SET office_name=?, manager_name=?, phone=?, address=?, footer_note=?,
+          logo_data = CASE WHEN ? IS NOT NULL THEN ? ELSE logo_data END,
+          updated_at=CURRENT_TIMESTAMP
+      WHERE id=1
+    `).run(
+      input.officeName, input.managerName, input.phone, input.address, input.footerNote,
+      input.logoData !== undefined ? (input.logoData || null) : null,
+      input.logoData !== undefined ? (input.logoData || null) : null
+    );
     return this.getOfficeProfile();
   }
 
