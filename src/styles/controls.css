@@ -1,0 +1,690 @@
+/* ==========================================================================
+   Maktoob Controls CSS — Premium Arabic-First Windows Desktop Inputs
+   Height standard: 42px – 46px (Default: 44px)
+   Respects theme tokens: --primary, --primary-focus-ring, --input-border, etc.
+   ========================================================================== */
+
+/* Base Input Primitive */
+.maktoob-input,
+.maktoob-select-trigger,
+.maktoob-currency-container {
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--text-main, #17211d);
+  background-color: var(--input-bg, #ffffff);
+  border: 1px solid var(--input-border, #cbd5e1);
+  border-radius: 8px;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+  outline: none;
+  direction: rtl;
+  text-align: right;
+}
+
+/* Hover State */
+.maktoob-input:hover:not(:disabled):not([readonly]),
+.maktoob-select-trigger:hover:not([aria-disabled="true"]):not(:disabled) {
+  border-color: var(--input-hover-border, #94a3b8);
+}
+
+/* Focus State */
+.maktoob-input:focus,
+.maktoob-input:focus-visible,
+.maktoob-select-trigger:focus-visible,
+.maktoob-currency-container:focus-within {
+  border-color: var(--primary, #b8954e);
+  box-shadow: 0 0 0 3px var(--primary-focus-ring, rgba(184, 149, 78, 0.25));
+  outline: none;
+}
+
+/* Error State */
+.maktoob-input[aria-invalid="true"],
+.maktoob-input.has-error,
+.maktoob-select-trigger.has-error,
+.maktoob-currency-container.has-error,
+.maktoob-textarea.has-error {
+  border-color: var(--danger, #a93e3e) !important;
+  box-shadow: 0 0 0 3px rgba(169, 62, 62, 0.15) !important;
+}
+
+/* Disabled State */
+.maktoob-input:disabled,
+.maktoob-input[aria-disabled="true"],
+.maktoob-select-trigger:disabled,
+.maktoob-select-trigger[aria-disabled="true"],
+.maktoob-currency-container.is-disabled,
+.maktoob-textarea:disabled {
+  background-color: var(--input-disabled-bg, #f1f5f9) !important;
+  color: var(--input-disabled-text, #94a3b8) !important;
+  border-color: var(--input-border, #cbd5e1) !important;
+  cursor: not-allowed !important;
+  opacity: 0.85;
+}
+
+/* Readonly State */
+.maktoob-input[readonly],
+.maktoob-textarea[readonly] {
+  background-color: #fafbfb;
+  border-color: var(--line, #e0e5e1);
+  color: var(--text-main, #17211d);
+  cursor: default;
+}
+
+/* Placeholder */
+.maktoob-input::placeholder,
+.maktoob-textarea::placeholder {
+  color: var(--text-muted, #68736d);
+  opacity: 0.75;
+  font-size: 13px;
+}
+
+/* LTR Data Values in RTL Environment */
+/* Crucial for Phone Numbers, National IDs, Contract Numbers, Dates, Currency amounts */
+.maktoob-input[data-ltr="true"],
+.maktoob-input.data-ltr,
+.maktoob-input.input-phone,
+.maktoob-input.input-id,
+.maktoob-input.input-date,
+.maktoob-input.input-numeric,
+.maktoob-input.input-vin {
+  direction: ltr;
+  text-align: right;
+  unicode-bidi: plaintext;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
+}
+
+/* Center or Left alignment for specific LTR identifiers when requested */
+.maktoob-input.data-ltr-center {
+  direction: ltr;
+  text-align: center;
+  unicode-bidi: plaintext;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Input Wrapper for Leading/Trailing Icons & Addons */
+.maktoob-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.maktoob-input-wrapper .maktoob-input {
+  width: 100%;
+}
+
+.maktoob-input-wrapper.has-leading-icon .maktoob-input {
+  padding-right: 38px;
+}
+
+.maktoob-input-wrapper.has-trailing-addon .maktoob-input {
+  padding-left: 38px;
+}
+
+.maktoob-input-leading-icon {
+  position: absolute;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  color: var(--text-muted, #68736d);
+  width: 20px;
+  height: 20px;
+  user-select: none;
+}
+
+.maktoob-input-trailing-addon {
+  position: absolute;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, #68736d);
+  font-size: 12px;
+  user-select: none;
+}
+
+.maktoob-input-clear-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--text-muted, #68736d);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.12s ease, background-color 0.12s ease;
+}
+
+.maktoob-input-clear-btn:hover {
+  color: var(--text-main, #17211d);
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* ==========================================================================
+   Select Dropdown
+   ========================================================================== */
+.maktoob-select {
+  position: relative;
+  width: 100%;
+  display: block;
+}
+
+.maktoob-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  text-align: right;
+  padding: 0 14px;
+}
+
+.maktoob-select-value {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.maktoob-select-value.is-placeholder {
+  color: var(--text-muted, #68736d);
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.maktoob-select-affordance {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, #68736d);
+  transition: transform 0.2s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.maktoob-select.is-open .maktoob-select-affordance {
+  transform: rotate(180deg);
+  color: var(--primary, #b8954e);
+}
+
+/* Floating Listbox */
+.maktoob-select-listbox {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  background-color: var(--card-bg, #ffffff);
+  border: 1px solid var(--line, #e0e5e1);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.12), 0 4px 8px -2px rgba(0, 0, 0, 0.05);
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 1000;
+  padding: 6px;
+  list-style: none;
+  margin: 0;
+  direction: rtl;
+  outline: none;
+}
+
+/* Option Row */
+.maktoob-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13.5px;
+  color: var(--text-main, #17211d);
+  transition: background-color 0.12s ease, color 0.12s ease;
+  margin-bottom: 2px;
+}
+
+.maktoob-select-option:last-child {
+  margin-bottom: 0;
+}
+
+.maktoob-select-option:hover,
+.maktoob-select-option.is-highlighted {
+  background-color: rgba(184, 149, 78, 0.09);
+  color: var(--text-main, #17211d);
+}
+
+.maktoob-select-option.is-selected {
+  font-weight: 600;
+  background-color: rgba(184, 149, 78, 0.14);
+  color: var(--text-main, #17211d);
+}
+
+.maktoob-select-option.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.maktoob-select-option-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.maktoob-select-option-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.maktoob-select-option-description {
+  font-size: 11.5px;
+  color: var(--text-muted, #68736d);
+  font-weight: normal;
+}
+
+.maktoob-select-option-check {
+  margin-right: 8px;
+  color: var(--primary, #b8954e);
+  font-weight: bold;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.maktoob-select-option-badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--line, #e0e5e1);
+  color: var(--text-muted, #68736d);
+  font-weight: 600;
+}
+
+.maktoob-select-empty {
+  padding: 16px 12px;
+  text-align: center;
+  color: var(--text-muted, #68736d);
+  font-size: 13px;
+}
+
+/* ==========================================================================
+   SearchableCombobox — Designed for Party Records & Large Datasets
+   ========================================================================== */
+.maktoob-combobox {
+  position: relative;
+  width: 100%;
+}
+
+.maktoob-combobox-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  background-color: var(--card-bg, #ffffff);
+  border: 1px solid var(--line, #e0e5e1);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.15), 0 4px 10px -2px rgba(0, 0, 0, 0.05);
+  max-height: 340px;
+  z-index: 1000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  direction: rtl;
+}
+
+.maktoob-combobox-search-header {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line, #e0e5e1);
+  background-color: var(--workspace-bg, #f8faf9);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.maktoob-combobox-search-input {
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid var(--input-border, #cbd5e1);
+  padding: 0 10px;
+  font-size: 13px;
+  width: 100%;
+  background-color: var(--input-bg, #ffffff);
+  color: var(--text-main, #17211d);
+  outline: none;
+  direction: rtl;
+}
+
+.maktoob-combobox-search-input:focus {
+  border-color: var(--primary, #b8954e);
+  box-shadow: 0 0 0 2px var(--primary-focus-ring, rgba(184, 149, 78, 0.2));
+}
+
+.maktoob-combobox-list {
+  overflow-y: auto;
+  max-height: 280px;
+  padding: 6px;
+  margin: 0;
+  list-style: none;
+}
+
+/* Rich Party Item Card */
+.maktoob-combobox-item {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.maktoob-combobox-item:last-child {
+  margin-bottom: 0;
+}
+
+.maktoob-combobox-item:hover,
+.maktoob-combobox-item.is-highlighted {
+  background-color: rgba(184, 149, 78, 0.08);
+  border-color: rgba(184, 149, 78, 0.2);
+}
+
+.maktoob-combobox-item.is-selected {
+  background-color: rgba(184, 149, 78, 0.14);
+  border-color: rgba(184, 149, 78, 0.3);
+}
+
+.maktoob-combobox-item-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.maktoob-combobox-item-name {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--text-main, #17211d);
+}
+
+.maktoob-combobox-item-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.maktoob-combobox-item-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background-color: var(--workspace-bg, #f8faf9);
+  border: 1px solid var(--line, #e0e5e1);
+  color: var(--text-muted, #68736d);
+  direction: ltr;
+  font-variant-numeric: tabular-nums;
+}
+
+.maktoob-combobox-item-chip.chip-phone {
+  letter-spacing: 0.3px;
+}
+
+.maktoob-combobox-item-chip.chip-id {
+  letter-spacing: 0.2px;
+}
+
+.maktoob-combobox-item-address {
+  font-size: 11.5px;
+  color: var(--text-muted, #68736d);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.maktoob-combobox-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-muted, #68736d);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ==========================================================================
+   CurrencyInput — Dual Amount + Currency Selector
+   ========================================================================== */
+.maktoob-currency-container {
+  display: flex;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+  background-color: var(--input-bg, #ffffff);
+}
+
+.maktoob-currency-amount-input {
+  flex: 1;
+  height: 100%;
+  border: none;
+  background: transparent;
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main, #17211d);
+  direction: ltr;
+  text-align: right;
+  unicode-bidi: plaintext;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  min-width: 0;
+}
+
+.maktoob-currency-amount-input::placeholder {
+  color: var(--text-muted, #68736d);
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.maktoob-currency-divider {
+  width: 1px;
+  background-color: var(--input-border, #cbd5e1);
+  align-self: stretch;
+  margin: 6px 0;
+}
+
+.maktoob-currency-selector {
+  display: flex;
+  align-items: center;
+  background: var(--workspace-bg, #f8faf9);
+  padding: 0 4px;
+}
+
+.maktoob-currency-btn {
+  background: transparent;
+  border: none;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted, #68736d);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+  height: 30px;
+}
+
+.maktoob-currency-btn:hover {
+  color: var(--text-main, #17211d);
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.maktoob-currency-btn.is-active {
+  background-color: var(--primary, #b8954e);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   NumberInput Stepper
+   ========================================================================== */
+.maktoob-number-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.maktoob-number-stepper {
+  position: absolute;
+  left: 6px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.maktoob-stepper-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line, #e0e5e1);
+  background: var(--workspace-bg, #f8faf9);
+  color: var(--text-main, #17211d);
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.12s ease;
+}
+
+.maktoob-stepper-btn:hover:not(:disabled) {
+  background: var(--card-bg, #ffffff);
+  border-color: var(--primary, #b8954e);
+  color: var(--primary, #b8954e);
+}
+
+.maktoob-stepper-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   DateInput
+   ========================================================================== */
+.maktoob-date-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.maktoob-date-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted, #68736d);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.maktoob-date-today-btn {
+  position: absolute;
+  left: 36px;
+  border: none;
+  background: rgba(184, 149, 78, 0.1);
+  color: var(--primary, #b8954e);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.maktoob-date-today-btn:hover {
+  background: rgba(184, 149, 78, 0.2);
+}
+
+/* ==========================================================================
+   Textarea
+   ========================================================================== */
+.maktoob-textarea {
+  min-height: 96px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-main, #17211d);
+  background-color: var(--input-bg, #ffffff);
+  border: 1px solid var(--input-border, #cbd5e1);
+  border-radius: 8px;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  outline: none;
+  direction: rtl;
+  text-align: right;
+  resize: vertical;
+}
+
+.maktoob-textarea:hover:not(:disabled):not([readonly]) {
+  border-color: var(--input-hover-border, #94a3b8);
+}
+
+.maktoob-textarea:focus {
+  border-color: var(--primary, #b8954e);
+  box-shadow: 0 0 0 3px var(--primary-focus-ring, rgba(184, 149, 78, 0.25));
+  outline: none;
+}
+
+.maktoob-textarea-count {
+  font-size: 11px;
+  color: var(--text-muted, #68736d);
+  text-align: left;
+  margin-top: 4px;
+  direction: ltr;
+}
+
+/* Custom Scrollbar for Dropdowns */
+.maktoob-select-listbox::-webkit-scrollbar,
+.maktoob-combobox-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.maktoob-select-listbox::-webkit-scrollbar-track,
+.maktoob-combobox-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.maktoob-select-listbox::-webkit-scrollbar-thumb,
+.maktoob-combobox-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+
+.maktoob-select-listbox::-webkit-scrollbar-thumb:hover,
+.maktoob-combobox-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}

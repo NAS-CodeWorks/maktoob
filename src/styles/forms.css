@@ -1,0 +1,327 @@
+/* ==========================================================================
+   Maktoob Forms CSS — Form System Layout, Field Wrappers, and Sections
+   Arabic-First RTL Layout for Windows Desktop (1920x1080 -> 1100x700)
+   ========================================================================== */
+
+/* Field Container */
+.maktoob-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  direction: rtl;
+  text-align: right;
+  box-sizing: border-box;
+}
+
+.maktoob-field.is-wide {
+  grid-column: 1 / -1;
+}
+
+/* Label */
+.maktoob-field-label-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.maktoob-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main, #17211d);
+  user-select: none;
+  cursor: pointer;
+}
+
+.maktoob-field.is-disabled .maktoob-field-label {
+  color: var(--text-muted, #68736d);
+  cursor: not-allowed;
+}
+
+/* Required Indicator in Arabic */
+.maktoob-required-indicator {
+  color: var(--danger, #a93e3e);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.maktoob-required-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--danger, #a93e3e);
+  background: rgba(169, 62, 62, 0.08);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* Field Hint / Optional Label */
+.maktoob-field-hint {
+  font-size: 11.5px;
+  color: var(--text-muted, #68736d);
+  font-weight: normal;
+}
+
+/* Field Helper Text */
+.maktoob-field-helper {
+  font-size: 11.5px;
+  color: var(--text-muted, #68736d);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+/* Validation Message Under Field */
+.maktoob-validation-message {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-top: 2px;
+  direction: rtl;
+  text-align: right;
+}
+
+.maktoob-validation-message.variant-error {
+  color: var(--danger, #a93e3e);
+}
+
+.maktoob-validation-message.variant-warning {
+  color: var(--warning, #98661a);
+}
+
+.maktoob-validation-message.variant-info {
+  color: var(--primary, #b8954e);
+}
+
+.maktoob-validation-message.variant-success {
+  color: var(--positive, #267046);
+}
+
+.maktoob-validation-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
+
+/* ==========================================================================
+   FieldGroup — Responsive Grid Layout
+   ========================================================================== */
+.maktoob-field-group {
+  display: grid;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.maktoob-field-group.gap-sm {
+  gap: 10px;
+}
+
+.maktoob-field-group.gap-md {
+  gap: 16px;
+}
+
+.maktoob-field-group.gap-lg {
+  gap: 22px;
+}
+
+.maktoob-field-group.columns-1 {
+  grid-template-columns: 1fr;
+}
+
+.maktoob-field-group.columns-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.maktoob-field-group.columns-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.maktoob-field-group.columns-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.maktoob-field-group.columns-auto {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+/* Alignment */
+.maktoob-field-group.align-start {
+  align-items: start;
+}
+
+.maktoob-field-group.align-center {
+  align-items: center;
+}
+
+.maktoob-field-group.align-end {
+  align-items: end;
+}
+
+.maktoob-field-group.align-stretch {
+  align-items: stretch;
+}
+
+/* Desktop Responsiveness (Usable at 1440x900 and 1100x700 without horizontal scrolling) */
+@media (max-width: 1360px) {
+  .maktoob-field-group.columns-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1180px) {
+  .maktoob-field-group.columns-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .maktoob-field-group.columns-2,
+  .maktoob-field-group.columns-3,
+  .maktoob-field-group.columns-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   SectionHeader
+   ========================================================================== */
+.maktoob-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line, #e0e5e1);
+  direction: rtl;
+}
+
+.maktoob-section-header.is-compact {
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.maktoob-section-header-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.maktoob-section-header-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.maktoob-section-title {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--text-main, #17211d);
+  letter-spacing: -0.2px;
+}
+
+.maktoob-section-header.level-2 .maktoob-section-title {
+  font-size: 17px;
+}
+
+.maktoob-section-header.level-3 .maktoob-section-title {
+  font-size: 15px;
+}
+
+.maktoob-section-header.level-4 .maktoob-section-title {
+  font-size: 13.5px;
+}
+
+.maktoob-section-icon {
+  display: flex;
+  align-items: center;
+  color: var(--primary, #b8954e);
+}
+
+.maktoob-section-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background-color: rgba(184, 149, 78, 0.12);
+  color: var(--primary, #b8954e);
+}
+
+.maktoob-section-subtitle {
+  font-size: 12px;
+  color: var(--text-muted, #68736d);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.maktoob-section-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ==========================================================================
+   FormSection — Card / Group Container
+   ========================================================================== */
+.maktoob-form-section {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 22px;
+  direction: rtl;
+}
+
+.maktoob-form-section.variant-card {
+  background-color: var(--card-bg, #ffffff);
+  border: 1px solid var(--line, #e0e5e1);
+  border-radius: 12px;
+  padding: 20px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.maktoob-form-section.variant-bordered {
+  background-color: transparent;
+  border: 1px solid var(--line, #e0e5e1);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+.maktoob-form-section.variant-flat {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+}
+
+.maktoob-form-section-collapse-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted, #68736d);
+  transition: transform 0.2s ease, color 0.15s ease;
+}
+
+.maktoob-form-section-collapse-btn:hover {
+  color: var(--text-main, #17211d);
+}
+
+.maktoob-form-section.is-collapsed .maktoob-form-section-collapse-btn {
+  transform: rotate(90deg);
+}
+
+.maktoob-form-section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
