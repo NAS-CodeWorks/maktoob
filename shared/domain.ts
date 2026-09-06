@@ -203,4 +203,9 @@ export type MaktoobAPI = {
   printContract: (id: number) => Promise<OperationResult>;
   createBackup: () => Promise<OperationResult>;
   restoreBackup: () => Promise<OperationResult>;
+  openContractViewer: (id: number) => Promise<{ ok: boolean }>;
+  editContractFromViewer: (id: number) => Promise<void>;
+  onEditContractRequested: (callback: (contractId: number) => void) => () => void;
+  listContractsByTemplate: (templateId: number) => Promise<ContractListItem[]>;
+  listContractsByParty: (partyId: number) => Promise<ContractListItem[]>;
 };

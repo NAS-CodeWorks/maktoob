@@ -89,6 +89,14 @@ export function App() {
   const [editing, setEditing] = useState<Contract | null | 'new'>(null);
   const [editingTemplate, setEditingTemplate] = useState<ContractTemplate | null | 'new'>(null);
   const [details, setDetails] = useState<Contract | null>(null);
+  const [selectedTemplateContracts, setSelectedTemplateContracts] = useState<{
+    template: ContractTemplate;
+    contracts: ContractListItem[];
+  } | null>(null);
+  const [selectedPartyDetails, setSelectedPartyDetails] = useState<{
+    party: PartySummary;
+    contracts: ContractListItem[];
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
@@ -218,6 +226,41 @@ export function App() {
       setError(messageFrom(caught));
     }
   };
+
+  const openContractViewer = async (id: number) => {
+    try {
+      await window.maktoob.openContractViewer(id);
+    } catch (caught) {
+      setError(messageFrom(caught));
+    }
+  };
+
+  const openTemplateContracts = async (template: ContractTemplate) => {
+    if (!template.contractsCount) return;
+    try {
+      const linked = await window.maktoob.listContractsByTemplate(template.id);
+      setSelectedTemplateContracts({ template, contracts: linked });
+    } catch (caught) {
+      setError(messageFrom(caught));
+    }
+  };
+
+  const openPartyDetails = async (party: PartySummary) => {
+    try {
+      const linked = await window.maktoob.listContractsByParty(party.id);
+      setSelectedPartyDetails({ party, contracts: linked });
+    } catch (caught) {
+      setError(messageFrom(caught));
+    }
+  };
+
+  useEffect(() => {
+    if (!window.maktoob?.onEditContractRequested) return;
+    const unsubscribe = window.maktoob.onEditContractRequested((contractId) => {
+      void openContractEdit(contractId);
+    });
+    return unsubscribe;
+  }, []);
 
   const removeTemplate = async (template: ContractTemplate) => {
     if (!confirm(`حذف قالب «${template.name}»؟ ستبقى نسخ البنود محفوظة داخل العقود السابقة.`)) return;
@@ -378,9 +421,10 @@ export function App() {
                   </div>
                   <ContractsTable
                     contracts={dashboard.recentContracts}
-                    onOpen={openDetails}
+                    onOpen={openContractViewer}
                     onEdit={openContractEdit}
                     onDelete={removeContract}
+                    onDetails={openDetails}
                   />
                 </section>
               </>
@@ -390,9 +434,10 @@ export function App() {
               <section className="panel">
                 <ContractsTable
                   contracts={contracts}
-                  onOpen={openDetails}
+                  onOpen={openContractViewer}
                   onEdit={openContractEdit}
                   onDelete={removeContract}
+                  onDetails={openDetails}
                 />
               </section>
             )}
@@ -412,7 +457,20 @@ export function App() {
                     <dl>
                       <div>
                         <dt>العقود المرتبطة</dt>
-                        <dd>{template.contractsCount}</dd>
+                        <dd>
+                          {template.contractsCount > 0 ? (
+                            <button
+                              type="button"
+                              className="template-contracts-badge"
+                              onClick={() => openTemplateContracts(template)}
+                              title="عرض العقود المرتبطة بهذا القالب"
+                            >
+                              {template.contractsCount} عقود
+                            </button>
+                          ) : (
+                            <span>0</span>
+                          )}
+                        </dd>
                       </div>
                       <div>
                         <dt>آخر تحديث</dt>
@@ -455,12 +513,32 @@ export function App() {
                       {parties.map((party) => (
                         <tr key={party.id}>
                           <td>
-                            <strong>{party.name}</strong>
+                            <button
+                              type="button"
+                              className="link-button party-name-btn"
+                              onClick={() => openPartyDetails(party)}
+                              title="عرض عقود هذا الطرف"
+                            >
+                              <strong>{party.name}</strong>
+                            </button>
                           </td>
                           <td>{party.phone || '—'}</td>
                           <td>{party.identifier || '—'}</td>
                           <td>{party.address || '—'}</td>
-                          <td>{party.contractsCount}</td>
+                          <td>
+                            {party.contractsCount > 0 ? (
+                              <button
+                                type="button"
+                                className="template-contracts-badge"
+                                onClick={() => openPartyDetails(party)}
+                                title="عرض عقود هذا الطرف"
+                              >
+                                {party.contractsCount} عقود
+                              </button>
+                            ) : (
+                              <span>0</span>
+                            )}
+                          </td>
                           <td>{formatMoney(party.totalValueIQD)}</td>
                           <td>{formatMoney(party.totalValueUSD, 'USD')}</td>
                         </tr>
@@ -496,8 +574,10 @@ export function App() {
                         <tr key={payment.id}>
                           <td>
                             <button
+                              type="button"
                               className="link-button contract-id"
-                              onClick={() => openDetails(payment.contractId)}
+                              onClick={() => openContractViewer(payment.contractId)}
+                              title="فتح وثيقة العقد في نافذة المعاينة والطباعة"
                             >
                               {payment.contractNumber}
                             </button>
@@ -620,6 +700,122 @@ export function App() {
           onChanged={refreshDetails}
           notify={notify}
         />
+      )}
+
+      {selectedTemplateContracts && (
+        <div className="modal-backdrop" onClick={() => setSelectedTemplateContracts(null)}>
+          <section
+            className="modal template-contracts-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="modal-head">
+              <div>
+                <span className="eyebrow">قالب العقود</span>
+                <h2>العقود المرتبطة بقالب «{selectedTemplateContracts.template.name}»</h2>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setSelectedTemplateContracts(null)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="modal-body-scrollable">
+              <ContractsTable
+                contracts={selectedTemplateContracts.contracts}
+                onOpen={openContractViewer}
+                onEdit={(id) => {
+                  setSelectedTemplateContracts(null);
+                  openContractEdit(id);
+                }}
+                onDelete={async (id) => {
+                  await removeContract(id);
+                  const refreshed = await window.maktoob.listContractsByTemplate(
+                    selectedTemplateContracts.template.id
+                  );
+                  setSelectedTemplateContracts({
+                    ...selectedTemplateContracts,
+                    contracts: refreshed,
+                  });
+                }}
+                onDetails={(id) => {
+                  setSelectedTemplateContracts(null);
+                  openDetails(id);
+                }}
+              />
+            </div>
+          </section>
+        </div>
+      )}
+
+      {selectedPartyDetails && (
+        <div className="modal-backdrop" onClick={() => setSelectedPartyDetails(null)}>
+          <section
+            className="modal party-contracts-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="modal-head">
+              <div>
+                <span className="eyebrow">سجل الأطراف</span>
+                <h2>العقود المرتبطة بالطرف: {selectedPartyDetails.party.name}</h2>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setSelectedPartyDetails(null)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="party-summary-banner">
+              <div>
+                <span>الهاتف:</span>
+                <strong>{selectedPartyDetails.party.phone || '—'}</strong>
+              </div>
+              <div>
+                <span>الهوية:</span>
+                <strong>{selectedPartyDetails.party.identifier || '—'}</strong>
+              </div>
+              <div>
+                <span>إجمالي (د.ع):</span>
+                <strong>{formatMoney(selectedPartyDetails.party.totalValueIQD)}</strong>
+              </div>
+              <div>
+                <span>إجمالي ($):</span>
+                <strong>{formatMoney(selectedPartyDetails.party.totalValueUSD, 'USD')}</strong>
+              </div>
+            </div>
+            <div className="modal-body-scrollable">
+              <ContractsTable
+                contracts={selectedPartyDetails.contracts}
+                onOpen={openContractViewer}
+                onEdit={(id) => {
+                  setSelectedPartyDetails(null);
+                  openContractEdit(id);
+                }}
+                onDelete={async (id) => {
+                  await removeContract(id);
+                  const refreshed = await window.maktoob.listContractsByParty(
+                    selectedPartyDetails.party.id
+                  );
+                  setSelectedPartyDetails({
+                    ...selectedPartyDetails,
+                    contracts: refreshed,
+                  });
+                }}
+                onDetails={(id) => {
+                  setSelectedPartyDetails(null);
+                  openDetails(id);
+                }}
+              />
+            </div>
+          </section>
+        </div>
       )}
 
       {toast && <div className="toast">{toast}</div>}

@@ -1,11 +1,31 @@
-import { BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import fs from 'node:fs';
 import { copyFile, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { ContractInput, ContractTemplateInput, OfficeProfile, PaymentInput } from '../shared/domain.js';
 import { MaktoobDatabase } from './database.js';
 import { contractHtml } from './contract-html.js';
 import { LicenseManager } from './licensing.js';
 
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+
+function resolveIconPath(): string | undefined {
+  const candidates = [
+    app.isPackaged ? path.join(process.resourcesPath, 'branding', 'maktoob.ico') : '',
+    app.isPackaged ? path.join(process.resourcesPath, 'icon.ico') : '',
+    path.join(app.getAppPath(), 'resources', 'branding', 'maktoob.ico'),
+    path.join(app.getAppPath(), 'resources', 'icon.ico'),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return undefined;
+}
+
 export function registerIpc(database: MaktoobDatabase, licenseManager: LicenseManager) {
+  const openViewerWindows = new Map<number, BrowserWindow>();
   const licensed = <T>(operation: () => T) => { licenseManager.requireActive(); return operation(); };
   ipcMain.handle('license:status', () => licenseManager.getState());
   ipcMain.handle('license:import', async () => {
@@ -15,6 +35,12 @@ export function registerIpc(database: MaktoobDatabase, licenseManager: LicenseMa
   });
   ipcMain.handle('dashboard:get', () => licensed(() => database.dashboard()));
   ipcMain.handle('contracts:list', (_event, query?: string) => licensed(() => database.listContracts(query)));
+  ipcMain.handle('contracts:list-by-template', (_event, templateId: number) =>
+    licensed(() => database.listContractsByTemplate(templateId))
+  );
+  ipcMain.handle('contracts:list-by-party', (_event, partyId: number) =>
+    licensed(() => database.listContractsByParty(partyId))
+  );
   ipcMain.handle('contracts:get', (_event, id: number) => licensed(() => database.getContract(id)));
   ipcMain.handle('contracts:create', (_event, input: ContractInput) => licensed(() => database.createContract(input)));
   ipcMain.handle('contracts:update', (_event, id: number, input: ContractInput) => licensed(() => database.updateContract(id, input)));
@@ -25,6 +51,85 @@ export function registerIpc(database: MaktoobDatabase, licenseManager: LicenseMa
   ipcMain.handle('contracts:render-html', (_event, id: number) =>
     licensed(() => database.renderContractHtml(id))
   );
+
+  ipcMain.handle('contracts:open-viewer', async (_event, id: number) => {
+    licenseManager.requireActive();
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new Error('رقم العقد غير صالح');
+    }
+    const contract = database.getContract(id);
+
+    const existingWindow = openViewerWindows.get(id);
+    if (existingWindow && !existingWindow.isDestroyed()) {
+      if (existingWindow.isMinimized()) existingWindow.restore();
+      existingWindow.focus();
+      return { ok: true };
+    }
+
+    const iconPath = resolveIconPath();
+    const viewerWindow = new BrowserWindow({
+      width: 1180,
+      height: 900,
+      minWidth: 900,
+      minHeight: 700,
+      backgroundColor: '#525659',
+      title: `مكتوب — معاينة العقد ${contract.contractNumber}`,
+      ...(iconPath ? { icon: iconPath } : {}),
+      show: false,
+      webPreferences: {
+        preload: path.join(currentDir, 'preload.cjs'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+      },
+    });
+
+    viewerWindow.removeMenu();
+    viewerWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    viewerWindow.webContents.on('will-navigate', (e, url) => {
+      const devServer = process.env.VITE_DEV_SERVER_URL;
+      if (!devServer || !url.startsWith(devServer)) e.preventDefault();
+    });
+
+    openViewerWindows.set(id, viewerWindow);
+    viewerWindow.on('closed', () => {
+      openViewerWindows.delete(id);
+    });
+
+    viewerWindow.once('ready-to-show', () => {
+      viewerWindow.show();
+    });
+
+    const devServer = process.env.VITE_DEV_SERVER_URL;
+    if (devServer) {
+      void viewerWindow.loadURL(`${devServer}/viewer.html?id=${id}`);
+    } else {
+      void viewerWindow.loadFile(path.join(app.getAppPath(), 'dist/viewer.html'), {
+        query: { id: String(id) },
+      });
+    }
+
+    return { ok: true };
+  });
+
+  ipcMain.handle('contracts:edit-from-viewer', async (_event, id: number) => {
+    licenseManager.requireActive();
+    if (!Number.isInteger(id) || id <= 0) return;
+
+    const allWindows = BrowserWindow.getAllWindows();
+    const activeViewerWindow = openViewerWindows.get(id);
+    const mainWindow = allWindows.find((win) => win !== activeViewerWindow && !win.isDestroyed());
+
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      mainWindow.webContents.send('contracts:edit-requested', id);
+    }
+
+    if (activeViewerWindow && !activeViewerWindow.isDestroyed()) {
+      activeViewerWindow.close();
+    }
+  });
   ipcMain.handle('templates:list', (_event, query?: string) => licensed(() => database.listTemplates(query)));
   ipcMain.handle('templates:create', (_event, input: ContractTemplateInput) => licensed(() => database.createTemplate(input)));
   ipcMain.handle('templates:update', (_event, id: number, input: ContractTemplateInput) => licensed(() => database.updateTemplate(id, input)));

@@ -560,6 +560,22 @@ export class MaktoobDatabase {
     return rows.map((row) => this.mapContract(row) as ContractListItem);
   }
 
+  listContractsByTemplate(templateId: number): ContractListItem[] {
+    if (!Number.isInteger(templateId) || templateId <= 0) return [];
+    const rows = this.db.prepare(`${contractSelect}
+      WHERE c.template_id = ?
+      GROUP BY c.id ORDER BY c.contract_date DESC, c.id DESC`).all(templateId) as ContractRow[];
+    return rows.map((row) => this.mapContract(row) as ContractListItem);
+  }
+
+  listContractsByParty(partyId: number): ContractListItem[] {
+    if (!Number.isInteger(partyId) || partyId <= 0) return [];
+    const rows = this.db.prepare(`${contractSelect}
+      WHERE c.first_party_id = ? OR c.second_party_id = ?
+      GROUP BY c.id ORDER BY c.contract_date DESC, c.id DESC`).all(partyId, partyId) as ContractRow[];
+    return rows.map((row) => this.mapContract(row) as ContractListItem);
+  }
+
   getContract(id: number): Contract {
     if (!Number.isInteger(id) || id <= 0) throw new Error('رقم العقد غير صالح');
     const row = this.db.prepare(`${contractSelect} WHERE c.id = ? GROUP BY c.id`).get(id) as ContractRow | undefined;

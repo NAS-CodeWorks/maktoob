@@ -83,6 +83,14 @@ export function ContractDetails({
     }
   };
 
+  const openViewer = async () => {
+    try {
+      await window.maktoob.openContractViewer(contract.id);
+    } catch (caught) {
+      setError(messageFrom(caught));
+    }
+  };
+
   return (
     <div className="modal-backdrop">
       <section className="modal details-modal" role="dialog" aria-modal="true">
@@ -92,7 +100,7 @@ export function ContractDetails({
             <h2>{contract.type}</h2>
           </div>
           <div className="head-actions">
-            <button className="secondary" onClick={() => setShowPreview(true)}>
+            <button className="secondary" onClick={openViewer} title="فتح العقد في نافذة المعاينة والطباعة المستقلة">
               👁️ معاينة العقد
             </button>
             <button className="secondary" onClick={printContract} disabled={printing}>

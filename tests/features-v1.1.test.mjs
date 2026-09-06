@@ -300,3 +300,131 @@ test('A4 output reserves print margins and repeats header and footer on every pa
     cleanup();
   }
 });
+
+test('listContractsByTemplate: returns all contracts created with a specific template', () => {
+  const { database, cleanup } = createTempDb();
+  try {
+    const template1 = database.createTemplate({
+      name: 'قالب بيع الأراضي',
+      description: 'خاص بالأراضي',
+      category: 'عقارات',
+      clauses: ['بند 1', 'بند 2'],
+      isDefault: false,
+    });
+    const template2 = database.createTemplate({
+      name: 'قالب إيجار دوري',
+      description: 'خاص بالإيجار',
+      category: 'إيجارات',
+      clauses: ['بند أ', 'بند ب'],
+      isDefault: false,
+    });
+
+    const c1 = database.createContract({
+      type: 'بيع عقار',
+      contractDate: '2026-09-01',
+      status: 'completed',
+      amount: 100000,
+      currency: 'USD',
+      notes: '',
+      templateId: template1.id,
+      firstParty: { name: 'علي البائع', phone: '', identifier: '', address: '' },
+      secondParty: { name: 'عمر المشتري', phone: '', identifier: '', address: '' },
+    });
+
+    const c2 = database.createContract({
+      type: 'بيع عقار ثان',
+      contractDate: '2026-09-02',
+      status: 'pending_payment',
+      amount: 200000,
+      currency: 'USD',
+      notes: '',
+      templateId: template1.id,
+      firstParty: { name: 'علي البائع', phone: '', identifier: '', address: '' },
+      secondParty: { name: 'حسن المشتري', phone: '', identifier: '', address: '' },
+    });
+
+    const c3 = database.createContract({
+      type: 'إيجار سنوي',
+      contractDate: '2026-09-03',
+      status: 'completed',
+      amount: 50000,
+      currency: 'USD',
+      notes: '',
+      templateId: template2.id,
+      firstParty: { name: 'أحمد المؤجر', phone: '', identifier: '', address: '' },
+      secondParty: { name: 'سالم المستأجر', phone: '', identifier: '', address: '' },
+    });
+
+    const template1Contracts = database.listContractsByTemplate(template1.id);
+    assert.equal(template1Contracts.length, 2);
+    assert.ok(template1Contracts.some((c) => c.id === c1.id));
+    assert.ok(template1Contracts.some((c) => c.id === c2.id));
+
+    const template2Contracts = database.listContractsByTemplate(template2.id);
+    assert.equal(template2Contracts.length, 1);
+    assert.equal(template2Contracts[0].id, c3.id);
+
+    // Invalid template id returns empty array
+    assert.deepEqual(database.listContractsByTemplate(99999), []);
+    assert.deepEqual(database.listContractsByTemplate(-1), []);
+  } finally {
+    cleanup();
+  }
+});
+
+test('listContractsByParty: returns all contracts where party is first or second party', () => {
+  const { database, cleanup } = createTempDb();
+  try {
+    const c1 = database.createContract({
+      type: 'بيع عام',
+      contractDate: '2026-09-01',
+      status: 'completed',
+      amount: 10000,
+      currency: 'IQD',
+      notes: '',
+      templateId: null,
+      firstParty: { name: 'زيد الرافدين', phone: '07700000001', identifier: 'ID-001', address: 'بغداد' },
+      secondParty: { name: 'بكر المنصور', phone: '07700000002', identifier: 'ID-002', address: 'البصرة' },
+    });
+
+    const partyZaid = c1.firstParty.id;
+    const partyBakr = c1.secondParty.id;
+
+    // Verify first party lookup
+    const zaidContracts = database.listContractsByParty(partyZaid);
+    assert.equal(zaidContracts.length, 1);
+    assert.equal(zaidContracts[0].id, c1.id);
+
+    // Verify second party lookup
+    const bakrContracts = database.listContractsByParty(partyBakr);
+    assert.equal(bakrContracts.length, 1);
+    assert.equal(bakrContracts[0].id, c1.id);
+
+    // If another contract is linked to partyZaid as second party:
+    const c2 = database.createContract({
+      type: 'بيع مركبة',
+      contractDate: '2026-09-02',
+      status: 'pending_payment',
+      amount: 20000,
+      currency: 'USD',
+      notes: '',
+      templateId: null,
+      firstParty: { name: 'خالد الكرخي', phone: '07700000003', identifier: 'ID-003', address: 'بغداد' },
+      secondParty: { name: 'شخص مؤقت', phone: '', identifier: '', address: '' },
+    });
+    // Link c2's second party to partyZaid
+    database.db.prepare('UPDATE contracts SET second_party_id = ? WHERE id = ?').run(partyZaid, c2.id);
+
+    const zaidBothContracts = database.listContractsByParty(partyZaid);
+    assert.equal(zaidBothContracts.length, 2);
+    assert.ok(zaidBothContracts.some((c) => c.id === c1.id));
+    assert.ok(zaidBothContracts.some((c) => c.id === c2.id));
+
+    // Nonexistent party returns empty array
+    assert.deepEqual(database.listContractsByParty(99999), []);
+    assert.deepEqual(database.listContractsByParty(-1), []);
+  } finally {
+    cleanup();
+  }
+});
+

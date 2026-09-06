@@ -1527,3 +1527,84 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Contract Viewer & Connected References */
+.clickable-contract-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.clickable-contract-row:hover {
+  background-color: #edf5f0 !important;
+}
+
+.template-contracts-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: rgba(22, 54, 41, 0.08);
+  border: 1px solid rgba(22, 54, 41, 0.2);
+  color: var(--primary);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.template-contracts-badge:hover {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
+.party-name-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--primary);
+  text-align: right;
+  padding: 0;
+  font-size: 13px;
+  transition: color 0.15s ease;
+}
+
+.party-name-btn:hover {
+  text-decoration: underline;
+}
+
+.modal-body-scrollable {
+  padding: 20px 24px;
+  max-height: calc(80vh - 120px);
+  overflow-y: auto;
+}
+
+.party-summary-banner {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  padding: 14px 26px;
+  background: #f8faf9;
+  border-bottom: 1px solid var(--line);
+}
+
+.party-summary-banner > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.party-summary-banner span {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.party-summary-banner strong {
+  font-size: 13px;
+  color: var(--text-main);
+  font-weight: 700;
+}
+

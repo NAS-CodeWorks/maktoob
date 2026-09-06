@@ -28,6 +28,17 @@ const api: MaktoobAPI = {
   printContract: (id: number) => ipcRenderer.invoke('contracts:print', id),
   createBackup: () => ipcRenderer.invoke('backup:create'),
   restoreBackup: () => ipcRenderer.invoke('backup:restore'),
+  openContractViewer: (id: number) => ipcRenderer.invoke('contracts:open-viewer', id),
+  editContractFromViewer: (id: number) => ipcRenderer.invoke('contracts:edit-from-viewer', id),
+  onEditContractRequested: (callback: (contractId: number) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, contractId: number) => callback(contractId);
+    ipcRenderer.on('contracts:edit-requested', handler);
+    return () => {
+      ipcRenderer.removeListener('contracts:edit-requested', handler);
+    };
+  },
+  listContractsByTemplate: (templateId: number) => ipcRenderer.invoke('contracts:list-by-template', templateId),
+  listContractsByParty: (partyId: number) => ipcRenderer.invoke('contracts:list-by-party', partyId),
 };
 
 contextBridge.exposeInMainWorld('maktoob', api);
