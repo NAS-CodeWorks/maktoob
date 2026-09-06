@@ -9,11 +9,13 @@ export function ContractsTable({
   onOpen,
   onEdit,
   onDelete,
+  onDetails,
 }: {
   contracts: ContractListItem[];
   onOpen: (id: number) => void;
   onEdit: (id: number) => void;
   onDelete: (id: number) => void;
+  onDetails?: (id: number) => void;
 }) {
   if (!contracts.length) {
     return (
@@ -42,9 +44,21 @@ export function ContractsTable({
         </thead>
         <tbody>
           {contracts.map((contract) => (
-            <tr key={contract.id}>
+            <tr
+              key={contract.id}
+              className="clickable-contract-row"
+              onClick={() => onOpen(contract.id)}
+              title="انقر لعرض وثيقة العقد في نافذة المعاينة والطباعة"
+            >
               <td>
-                <button className="link-button contract-id" onClick={() => onOpen(contract.id)}>
+                <button
+                  type="button"
+                  className="link-button contract-id"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpen(contract.id);
+                  }}
+                >
                   {contract.contractNumber}
                 </button>
               </td>
@@ -57,10 +71,15 @@ export function ContractsTable({
               <td>
                 <StatusBadge status={contract.status} />
               </td>
-              <td>
+              <td onClick={(e) => e.stopPropagation()}>
                 <div className="row-actions">
-                  <button onClick={() => onEdit(contract.id)}>تعديل</button>
-                  <button className="danger" onClick={() => onDelete(contract.id)}>
+                  <button type="button" onClick={() => onEdit(contract.id)}>تعديل</button>
+                  {onDetails && (
+                    <button type="button" onClick={() => onDetails(contract.id)} title="عرض تفاصيل وتسجيل الدفعات">
+                      دفعات
+                    </button>
+                  )}
+                  <button type="button" className="danger" onClick={() => onDelete(contract.id)}>
                     حذف
                   </button>
                 </div>

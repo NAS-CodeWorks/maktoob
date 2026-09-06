@@ -19,6 +19,47 @@ import { TemplateForm } from './components/TemplateForm';
 
 type View = 'dashboard' | 'contracts' | 'templates' | 'parties' | 'payments' | 'backup' | 'settings';
 
+const viewMeta: Record<View, { title: string; subtitle: string; actionLabel?: string; actionType?: 'contract' | 'template' }> = {
+  dashboard: {
+    title: 'نظرة عامة',
+    subtitle: 'ملخص مؤشرات العقود والدفعات الحالية',
+    actionLabel: '+ عقد جديد',
+    actionType: 'contract',
+  },
+  contracts: {
+    title: 'العقود',
+    subtitle: 'سجل وإدارة عقود البيع والشراء',
+    actionLabel: '+ عقد جديد',
+    actionType: 'contract',
+  },
+  templates: {
+    title: 'قوالب العقود',
+    subtitle: 'مكتبة النماذج والبنود القانونية المعتمدة',
+    actionLabel: '+ قالب جديد',
+    actionType: 'template',
+  },
+  parties: {
+    title: 'الأطراف',
+    subtitle: 'دليل البائعين والمشترين وسجلاتهم',
+    actionLabel: '+ عقد جديد',
+    actionType: 'contract',
+  },
+  payments: {
+    title: 'الدفعات',
+    subtitle: 'حركة المقبوضات المالية وجداول السداد',
+    actionLabel: '+ عقد جديد',
+    actionType: 'contract',
+  },
+  backup: {
+    title: 'النسخ الاحتياطي',
+    subtitle: 'تأمين واستعادة قاعدة البيانات والوثائق',
+  },
+  settings: {
+    title: 'إعدادات المكتب',
+    subtitle: 'تخصيص هوية المستند ونمط الواجهة',
+  },
+};
+
 const navItems: Array<{ id: View; label: string; icon: string }> = [
   { id: 'dashboard', label: 'نظرة عامة', icon: '⌂' },
   { id: 'contracts', label: 'العقود', icon: '▤' },
@@ -48,6 +89,14 @@ export function App() {
   const [editing, setEditing] = useState<Contract | null | 'new'>(null);
   const [editingTemplate, setEditingTemplate] = useState<ContractTemplate | null | 'new'>(null);
   const [details, setDetails] = useState<Contract | null>(null);
+  const [selectedTemplateContracts, setSelectedTemplateContracts] = useState<{
+    template: ContractTemplate;
+    contracts: ContractListItem[];
+  } | null>(null);
+  const [selectedPartyDetails, setSelectedPartyDetails] = useState<{
+    party: PartySummary;
+    contracts: ContractListItem[];
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
@@ -94,12 +143,31 @@ export function App() {
 
   useEffect(() => {
     void window.maktoob.getLicenseState().then(setLicense).catch((caught) => setError(messageFrom(caught)));
+    void window.maktoob
+      .getOfficeProfile()
+      .then((profile) => {
+        setOfficeProfile(profile);
+        document.documentElement.setAttribute('data-theme', profile.theme || 'original');
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (license?.status === 'active') void load();
   }, [license?.status, load]);
+
+  useEffect(() => {
+    if (!license) return;
+    const timer = window.setTimeout(() => {
+      const overlay = document.getElementById('startup-overlay');
+      if (overlay) {
+        overlay.classList.add('fade-out');
+        window.setTimeout(() => overlay.remove(), 450);
+      }
+    }, 1800);
+    return () => window.clearTimeout(timer);
+  }, [license]);
 
   const changeView = (next: View) => {
     setQuery('');
@@ -159,6 +227,41 @@ export function App() {
     }
   };
 
+  const openContractViewer = async (id: number) => {
+    try {
+      await window.maktoob.openContractViewer(id);
+    } catch (caught) {
+      setError(messageFrom(caught));
+    }
+  };
+
+  const openTemplateContracts = async (template: ContractTemplate) => {
+    if (!template.contractsCount) return;
+    try {
+      const linked = await window.maktoob.listContractsByTemplate(template.id);
+      setSelectedTemplateContracts({ template, contracts: linked });
+    } catch (caught) {
+      setError(messageFrom(caught));
+    }
+  };
+
+  const openPartyDetails = async (party: PartySummary) => {
+    try {
+      const linked = await window.maktoob.listContractsByParty(party.id);
+      setSelectedPartyDetails({ party, contracts: linked });
+    } catch (caught) {
+      setError(messageFrom(caught));
+    }
+  };
+
+  useEffect(() => {
+    if (!window.maktoob?.onEditContractRequested) return;
+    const unsubscribe = window.maktoob.onEditContractRequested((contractId) => {
+      void openContractEdit(contractId);
+    });
+    return unsubscribe;
+  }, []);
+
   const removeTemplate = async (template: ContractTemplate) => {
     if (!confirm(`حذف قالب «${template.name}»؟ ستبقى نسخ البنود محفوظة داخل العقود السابقة.`)) return;
     try {
@@ -170,7 +273,6 @@ export function App() {
     }
   };
 
-  const currentTitle = navItems.find((item) => item.id === view)!.label;
   const arabicDate = useMemo(
     () => new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'full' }).format(new Date()),
     []
@@ -183,7 +285,7 @@ export function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">م</span>
+          <img src="./branding/maktoob-256.png" alt="مكتوب" className="brand-logo-img" />
           <div>
             <strong>مكتوب</strong>
             <small>من السجلات إلى الديسكتوب</small>
@@ -202,6 +304,11 @@ export function App() {
           ))}
         </nav>
         <div className="office-card">
+          {officeProfile?.logoData && (
+            <div className="sidebar-office-logo-wrap">
+              <img src={officeProfile.logoData} alt="شعار المكتب" className="sidebar-office-logo" />
+            </div>
+          )}
           <span>نسخة المكتب</span>
           <strong>{officeProfile?.officeName ?? 'مكتب العقود'}</strong>
           <small>قاعدة البيانات محلية وآمنة</small>
@@ -209,51 +316,64 @@ export function App() {
       </aside>
 
       <main>
-        <header className="topbar">
-          <div>
-            <p>{arabicDate}</p>
-            <h1>{currentTitle}</h1>
-          </div>
-          {view === 'templates' ? (
-            <button className="primary" onClick={() => setEditingTemplate('new')}>
-              + قالب جديد
-            </button>
-          ) : (
-            view !== 'settings' && (
-              <button className="primary" onClick={openContractForm}>
-                + عقد جديد
-              </button>
-            )
-          )}
-        </header>
+        {(() => {
+          const meta = viewMeta[view];
+          const resultCount =
+            view === 'contracts'
+              ? contracts.length
+              : view === 'templates'
+              ? templates.length
+              : view === 'parties'
+              ? parties.length
+              : payments.length;
+          const isSearchable = view !== 'dashboard' && view !== 'backup' && view !== 'settings';
 
-        {error && (
-          <div className="page-error">
-            <strong>تعذر إكمال العملية</strong>
-            <span>{error}</span>
-            <button onClick={() => setError('')}>×</button>
-          </div>
-        )}
+          return (
+            <>
+              <header className="page-header">
+                <div className="page-header-info">
+                  <span className="page-header-date">{arabicDate}</span>
+                  <h1 className="page-title">{meta.title}</h1>
+                  <p className="page-subtitle">{meta.subtitle}</p>
+                </div>
+                {meta.actionLabel && (
+                  <div className="page-header-actions">
+                    <button
+                      className="primary"
+                      onClick={meta.actionType === 'template' ? () => setEditingTemplate('new') : openContractForm}
+                    >
+                      {meta.actionLabel}
+                    </button>
+                  </div>
+                )}
+              </header>
 
-        {view !== 'dashboard' && view !== 'backup' && view !== 'settings' && (
-          <div className="toolbar">
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={`ابحث في ${currentTitle}`}
-            />
-            <span>
-              {view === 'contracts'
-                ? contracts.length
-                : view === 'templates'
-                  ? templates.length
-                  : view === 'parties'
-                    ? parties.length
-                    : payments.length}{' '}
-              نتيجة
-            </span>
-          </div>
-        )}
+              {error && (
+                <div className="page-error">
+                  <strong>تعذر إكمال العملية</strong>
+                  <span>{error}</span>
+                  <button onClick={() => setError('')}>×</button>
+                </div>
+              )}
+
+              {isSearchable && (
+                <div className="toolbar">
+                  <div className="search-input-wrap">
+                    <input
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder={`ابحث في ${meta.title}…`}
+                      className="search-input"
+                    />
+                    <span className="results-count-badge">
+                      {resultCount} {resultCount === 1 ? 'نتيجة' : resultCount === 2 ? 'نتيجتان' : 'نتائج'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {loading ? (
           <div className="loading">جارٍ تحميل البيانات…</div>
@@ -274,13 +394,19 @@ export function App() {
                   </article>
                   <article>
                     <span>المبالغ المستلمة</span>
-                    <strong>{formatMoney(dashboard.receivedIQD)}</strong>
-                    <small className="positive">دفعات الدينار العراقي</small>
+                    <div className="currency-stack">
+                      <strong>{formatMoney(dashboard.receivedIQD)}</strong>
+                      <strong>{formatMoney(dashboard.receivedUSD, 'USD')}</strong>
+                    </div>
+                    <small className="positive">إجمالي الدفعات حسب العملة</small>
                   </article>
                   <article>
                     <span>المبالغ المتبقية</span>
-                    <strong>{formatMoney(dashboard.pendingIQD)}</strong>
-                    <small className="warning">تحتاج متابعة</small>
+                    <div className="currency-stack">
+                      <strong>{formatMoney(dashboard.pendingIQD)}</strong>
+                      <strong>{formatMoney(dashboard.pendingUSD, 'USD')}</strong>
+                    </div>
+                    <small className="warning">الأرصدة الفعلية التي تحتاج متابعة</small>
                   </article>
                 </section>
                 <section className="panel">
@@ -295,9 +421,10 @@ export function App() {
                   </div>
                   <ContractsTable
                     contracts={dashboard.recentContracts}
-                    onOpen={openDetails}
+                    onOpen={openContractViewer}
                     onEdit={openContractEdit}
                     onDelete={removeContract}
+                    onDetails={openDetails}
                   />
                 </section>
               </>
@@ -307,9 +434,10 @@ export function App() {
               <section className="panel">
                 <ContractsTable
                   contracts={contracts}
-                  onOpen={openDetails}
+                  onOpen={openContractViewer}
                   onEdit={openContractEdit}
                   onDelete={removeContract}
+                  onDetails={openDetails}
                 />
               </section>
             )}
@@ -329,7 +457,20 @@ export function App() {
                     <dl>
                       <div>
                         <dt>العقود المرتبطة</dt>
-                        <dd>{template.contractsCount}</dd>
+                        <dd>
+                          {template.contractsCount > 0 ? (
+                            <button
+                              type="button"
+                              className="template-contracts-badge"
+                              onClick={() => openTemplateContracts(template)}
+                              title="عرض العقود المرتبطة بهذا القالب"
+                            >
+                              {template.contractsCount} عقود
+                            </button>
+                          ) : (
+                            <span>0</span>
+                          )}
+                        </dd>
                       </div>
                       <div>
                         <dt>آخر تحديث</dt>
@@ -372,12 +513,32 @@ export function App() {
                       {parties.map((party) => (
                         <tr key={party.id}>
                           <td>
-                            <strong>{party.name}</strong>
+                            <button
+                              type="button"
+                              className="link-button party-name-btn"
+                              onClick={() => openPartyDetails(party)}
+                              title="عرض عقود هذا الطرف"
+                            >
+                              <strong>{party.name}</strong>
+                            </button>
                           </td>
                           <td>{party.phone || '—'}</td>
                           <td>{party.identifier || '—'}</td>
                           <td>{party.address || '—'}</td>
-                          <td>{party.contractsCount}</td>
+                          <td>
+                            {party.contractsCount > 0 ? (
+                              <button
+                                type="button"
+                                className="template-contracts-badge"
+                                onClick={() => openPartyDetails(party)}
+                                title="عرض عقود هذا الطرف"
+                              >
+                                {party.contractsCount} عقود
+                              </button>
+                            ) : (
+                              <span>0</span>
+                            )}
+                          </td>
                           <td>{formatMoney(party.totalValueIQD)}</td>
                           <td>{formatMoney(party.totalValueUSD, 'USD')}</td>
                         </tr>
@@ -413,8 +574,10 @@ export function App() {
                         <tr key={payment.id}>
                           <td>
                             <button
+                              type="button"
                               className="link-button contract-id"
-                              onClick={() => openDetails(payment.contractId)}
+                              onClick={() => openContractViewer(payment.contractId)}
+                              title="فتح وثيقة العقد في نافذة المعاينة والطباعة"
                             >
                               {payment.contractNumber}
                             </button>
@@ -537,6 +700,122 @@ export function App() {
           onChanged={refreshDetails}
           notify={notify}
         />
+      )}
+
+      {selectedTemplateContracts && (
+        <div className="modal-backdrop" onClick={() => setSelectedTemplateContracts(null)}>
+          <section
+            className="modal template-contracts-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="modal-head">
+              <div>
+                <span className="eyebrow">قالب العقود</span>
+                <h2>العقود المرتبطة بقالب «{selectedTemplateContracts.template.name}»</h2>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setSelectedTemplateContracts(null)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="modal-body-scrollable">
+              <ContractsTable
+                contracts={selectedTemplateContracts.contracts}
+                onOpen={openContractViewer}
+                onEdit={(id) => {
+                  setSelectedTemplateContracts(null);
+                  openContractEdit(id);
+                }}
+                onDelete={async (id) => {
+                  await removeContract(id);
+                  const refreshed = await window.maktoob.listContractsByTemplate(
+                    selectedTemplateContracts.template.id
+                  );
+                  setSelectedTemplateContracts({
+                    ...selectedTemplateContracts,
+                    contracts: refreshed,
+                  });
+                }}
+                onDetails={(id) => {
+                  setSelectedTemplateContracts(null);
+                  openDetails(id);
+                }}
+              />
+            </div>
+          </section>
+        </div>
+      )}
+
+      {selectedPartyDetails && (
+        <div className="modal-backdrop" onClick={() => setSelectedPartyDetails(null)}>
+          <section
+            className="modal party-contracts-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="modal-head">
+              <div>
+                <span className="eyebrow">سجل الأطراف</span>
+                <h2>العقود المرتبطة بالطرف: {selectedPartyDetails.party.name}</h2>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setSelectedPartyDetails(null)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="party-summary-banner">
+              <div>
+                <span>الهاتف:</span>
+                <strong>{selectedPartyDetails.party.phone || '—'}</strong>
+              </div>
+              <div>
+                <span>الهوية:</span>
+                <strong>{selectedPartyDetails.party.identifier || '—'}</strong>
+              </div>
+              <div>
+                <span>إجمالي (د.ع):</span>
+                <strong>{formatMoney(selectedPartyDetails.party.totalValueIQD)}</strong>
+              </div>
+              <div>
+                <span>إجمالي ($):</span>
+                <strong>{formatMoney(selectedPartyDetails.party.totalValueUSD, 'USD')}</strong>
+              </div>
+            </div>
+            <div className="modal-body-scrollable">
+              <ContractsTable
+                contracts={selectedPartyDetails.contracts}
+                onOpen={openContractViewer}
+                onEdit={(id) => {
+                  setSelectedPartyDetails(null);
+                  openContractEdit(id);
+                }}
+                onDelete={async (id) => {
+                  await removeContract(id);
+                  const refreshed = await window.maktoob.listContractsByParty(
+                    selectedPartyDetails.party.id
+                  );
+                  setSelectedPartyDetails({
+                    ...selectedPartyDetails,
+                    contracts: refreshed,
+                  });
+                }}
+                onDetails={(id) => {
+                  setSelectedPartyDetails(null);
+                  openDetails(id);
+                }}
+              />
+            </div>
+          </section>
+        </div>
       )}
 
       {toast && <div className="toast">{toast}</div>}

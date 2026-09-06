@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>مكتوب — معاينة العقد</title>
+    <style>
+      :root {
+        --bg-workspace: #383d41;
+        --bg-toolbar: #202428;
+        --border-toolbar: #32383e;
+        --text-primary: #f3f4f6;
+        --text-muted: #9ca3af;
+        --gold-primary: #c5a664;
+        --gold-hover: #ddbe7c;
+        --btn-bg: #2d3339;
+        --btn-border: #424a52;
+        --btn-hover: #3b434b;
+        --btn-active: #1e3a2f;
+        --btn-active-border: #b8954e;
+        --danger-bg: rgba(220, 38, 38, 0.15);
+        --danger-border: rgba(220, 38, 38, 0.4);
+        --danger-text: #fca5a5;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+        background-color: var(--bg-workspace);
+        color: var(--text-primary);
+        height: 100vh;
+        width: 100vw;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        user-select: none;
+      }
+
+      /* 1. Fixed Top Toolbar */
+      .viewer-toolbar {
+        height: 54px;
+        background-color: var(--bg-toolbar);
+        border-bottom: 1px solid var(--border-toolbar);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+        flex-shrink: 0;
+        z-index: 100;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+      }
+
+      .toolbar-section {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      /* Identity / Contract Info */
+      .toolbar-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: 8px;
+      }
+
+      .brand-icon {
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        object-fit: contain;
+      }
+
+      .contract-badge-number {
+        font-family: monospace;
+        font-size: 13px;
+        font-weight: 700;
+        color: #ffffff;
+        background: #10251d;
+        border: 1px solid #274637;
+        padding: 3px 9px;
+        border-radius: 4px;
+        letter-spacing: 0.5px;
+      }
+
+      .contract-badge-type {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--gold-primary);
+        background: rgba(197, 166, 100, 0.12);
+        border: 1px solid rgba(197, 166, 100, 0.3);
+        padding: 3px 10px;
+        border-radius: 4px;
+      }
+
+      /* Zoom Controls */
+      .zoom-group {
+        display: flex;
+        align-items: center;
+        background: #1a1e22;
+        border: 1px solid var(--btn-border);
+        border-radius: 6px;
+        padding: 2px;
+        gap: 2px;
+      }
+
+      .zoom-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 600;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .zoom-btn:hover {
+        color: var(--text-primary);
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .zoom-btn.active {
+        color: var(--gold-primary);
+        background: rgba(197, 166, 100, 0.15);
+        border: 1px solid rgba(197, 166, 100, 0.4);
+      }
+
+      /* Action Buttons */
+      .action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        border: 1px solid var(--btn-border);
+        background: var(--btn-bg);
+        color: var(--text-primary);
+      }
+
+      .action-btn:hover {
+        background: var(--btn-hover);
+        border-color: #555e68;
+      }
+
+      .action-btn.btn-primary {
+        background: #153828;
+        border-color: #274637;
+        color: #ffffff;
+      }
+
+      .action-btn.btn-primary:hover {
+        background: #1b4934;
+        border-color: #34604a;
+      }
+
+      .action-btn.btn-edit {
+        background: rgba(197, 166, 100, 0.12);
+        border-color: rgba(197, 166, 100, 0.35);
+        color: var(--gold-hover);
+      }
+
+      .action-btn.btn-edit:hover {
+        background: rgba(197, 166, 100, 0.22);
+        border-color: var(--gold-primary);
+        color: #ffffff;
+      }
+
+      .action-btn.btn-close {
+        color: var(--danger-text);
+        border-color: var(--danger-border);
+        background: var(--danger-bg);
+      }
+
+      .action-btn.btn-close:hover {
+        background: rgba(220, 38, 38, 0.25);
+        color: #ffffff;
+      }
+
+      .action-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* 2. Scrollable Workspace Environment */
+      .workspace {
+        flex: 1;
+        overflow: auto;
+        position: relative;
+        padding: 32px 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .sheet-scaler {
+        transform-origin: top center;
+        transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      /* 3. A4 Sheet Presentation */
+      .a4-sheet {
+        width: 210mm;
+        min-height: 297mm;
+        background: #ffffff;
+        box-shadow: 0 6px 30px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.25);
+        border-radius: 2px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .document-frame {
+        width: 100%;
+        min-height: 297mm;
+        border: none;
+        display: block;
+        background: #ffffff;
+      }
+
+      /* Loading and Error States */
+      .state-container {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg-workspace);
+        color: var(--text-primary);
+        gap: 12px;
+        z-index: 50;
+      }
+
+      .loading-spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid rgba(197, 166, 100, 0.2);
+        border-top-color: var(--gold-primary);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Fixed Top Toolbar -->
+    <header class="viewer-toolbar">
+      <div class="toolbar-section">
+        <div class="toolbar-brand">
+          <img src="./branding/maktoob-256.png" alt="مكتوب" class="brand-icon" />
+          <strong style="font-size: 13px; color: #f3f4f6;">مكتوب</strong>
+        </div>
+        <span id="badge-number" class="contract-badge-number">جارٍ التحميل…</span>
+        <span id="badge-type" class="contract-badge-type">…</span>
+      </div>
+
+      <!-- Zoom Controls -->
+      <div class="toolbar-section">
+        <div class="zoom-group">
+          <button type="button" class="zoom-btn" data-zoom="0.75" id="btn-zoom-75">75%</button>
+          <button type="button" class="zoom-btn active" data-zoom="1.0" id="btn-zoom-100">100%</button>
+          <button type="button" class="zoom-btn" data-zoom="1.25" id="btn-zoom-125">125%</button>
+          <button type="button" class="zoom-btn" data-zoom="fit" id="btn-zoom-fit">احتواء الصفحة</button>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="toolbar-section">
+        <button type="button" class="action-btn btn-primary" id="btn-print">
+          <span>🖨️</span>
+          <span>طباعة</span>
+        </button>
+        <button type="button" class="action-btn" id="btn-pdf">
+          <span>📄</span>
+          <span>تصدير PDF</span>
+        </button>
+        <button type="button" class="action-btn btn-edit" id="btn-edit">
+          <span>✏️</span>
+          <span>تعديل العقد</span>
+        </button>
+        <button type="button" class="action-btn btn-close" id="btn-close">
+          <span>✕</span>
+          <span>إغلاق</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Workspace -->
+    <main class="workspace" id="workspace">
+      <div class="sheet-scaler" id="sheet-scaler">
+        <div class="a4-sheet" id="a4-sheet">
+          <iframe id="doc-frame" class="document-frame" title="وثيقة العقد"></iframe>
+        </div>
+      </div>
+
+      <!-- Overlay States -->
+      <div id="state-overlay" class="state-container">
+        <div class="loading-spinner"></div>
+        <span id="state-text">جارٍ تحميل وثيقة العقد المطابقة للطباعة…</span>
+      </div>
+    </main>
+
+    <script>
+      (function() {
+        const params = new URLSearchParams(window.location.search);
+        const contractId = Number(params.get('id'));
+
+        const badgeNumber = document.getElementById('badge-number');
+        const badgeType = document.getElementById('badge-type');
+        const stateOverlay = document.getElementById('state-overlay');
+        const stateText = document.getElementById('state-text');
+        const docFrame = document.getElementById('doc-frame');
+        const sheetScaler = document.getElementById('sheet-scaler');
+        const a4Sheet = document.getElementById('a4-sheet');
+        const workspace = document.getElementById('workspace');
+
+        const btnPrint = document.getElementById('btn-print');
+        const btnPdf = document.getElementById('btn-pdf');
+        const btnEdit = document.getElementById('btn-edit');
+        const btnClose = document.getElementById('btn-close');
+
+        const zoomButtons = {
+          '0.75': document.getElementById('btn-zoom-75'),
+          '1.0': document.getElementById('btn-zoom-100'),
+          '1.25': document.getElementById('btn-zoom-125'),
+          'fit': document.getElementById('btn-zoom-fit'),
+        };
+
+        let currentZoom = 1.0;
+        let isFitPage = false;
+        let contractData = null;
+
+        function applyZoom(zoom, fit = false) {
+          currentZoom = zoom;
+          isFitPage = fit;
+          sheetScaler.style.transform = `scale(${zoom})`;
+
+          // Ensure proper bottom spacing when zoomed
+          const sheetHeight = a4Sheet.offsetHeight || 1123;
+          const scaledHeight = sheetHeight * zoom;
+          sheetScaler.style.height = `${scaledHeight}px`;
+
+          Object.values(zoomButtons).forEach((btn) => btn.classList.remove('active'));
+          if (fit) {
+            zoomButtons['fit'].classList.add('active');
+          } else if (zoomButtons[String(zoom)]) {
+            zoomButtons[String(zoom)].classList.add('active');
+          }
+        }
+
+        function calculateFitPageZoom() {
+          const availableHeight = workspace.clientHeight - 64; // margins
+          const sheetHeight = a4Sheet.offsetHeight || 1123;
+          if (sheetHeight <= 0) return 0.75;
+          const fitZoom = Math.min(1.0, Math.max(0.4, availableHeight / sheetHeight));
+          return Number(fitZoom.toFixed(2));
+        }
+
+        // Zoom button event listeners
+        zoomButtons['0.75'].addEventListener('click', () => applyZoom(0.75));
+        zoomButtons['1.0'].addEventListener('click', () => applyZoom(1.0));
+        zoomButtons['1.25'].addEventListener('click', () => applyZoom(1.25));
+        zoomButtons['fit'].addEventListener('click', () => {
+          applyZoom(calculateFitPageZoom(), true);
+        });
+
+        window.addEventListener('resize', () => {
+          if (isFitPage) {
+            applyZoom(calculateFitPageZoom(), true);
+          }
+        });
+
+        // Action Handlers
+        btnPrint.addEventListener('click', async () => {
+          if (!contractId || !window.maktoob) return;
+          btnPrint.disabled = true;
+          try {
+            await window.maktoob.printContract(contractId);
+          } catch (err) {
+            alert(err.message || 'تعذر إرسال أمر الطباعة');
+          } finally {
+            btnPrint.disabled = false;
+          }
+        });
+
+        btnPdf.addEventListener('click', async () => {
+          if (!contractId || !window.maktoob) return;
+          btnPdf.disabled = true;
+          try {
+            await window.maktoob.exportContractPdf(contractId);
+          } catch (err) {
+            alert(err.message || 'تعذر تصدير ملف PDF');
+          } finally {
+            btnPdf.disabled = false;
+          }
+        });
+
+        btnEdit.addEventListener('click', async () => {
+          if (!contractId || !window.maktoob) return;
+          try {
+            await window.maktoob.editContractFromViewer(contractId);
+          } catch (err) {
+            alert(err.message || 'تعذر فتح نافذة تعديل العقد');
+          }
+        });
+
+        btnClose.addEventListener('click', () => {
+          window.close();
+        });
+
+        // Close on Escape key
+        window.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            window.close();
+          }
+        });
+
+        // Load Contract & Printable Document
+        async function loadDocument() {
+          if (!contractId || Number.isNaN(contractId)) {
+            stateOverlay.innerHTML = '<span style="color: #fca5a5;">رقم العقد غير محدد أو غير صالح</span>';
+            return;
+          }
+
+          try {
+            const [contract, html] = await Promise.all([
+              window.maktoob.getContract(contractId),
+              window.maktoob.renderContractHtml(contractId),
+            ]);
+
+            contractData = contract;
+            badgeNumber.textContent = contract.contractNumber;
+            badgeType.textContent = contract.type;
+            document.title = `مكتوب — معاينة العقد ${contract.contractNumber}`;
+
+            docFrame.srcdoc = html;
+
+            docFrame.onload = () => {
+              try {
+                const doc = docFrame.contentDocument;
+                if (doc) {
+                  doc.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                      window.close();
+                    }
+                  });
+                  if (doc.body) {
+                    // Adjust iframe height to content height (minimum 1123px = 297mm)
+                    const scrollH = doc.body.scrollHeight;
+                    const targetH = Math.max(1123, scrollH);
+                    docFrame.style.height = `${targetH}px`;
+                    a4Sheet.style.height = `${targetH}px`;
+                  }
+                }
+              } catch (e) {
+                // cross-origin safety fallback
+              }
+
+              stateOverlay.style.display = 'none';
+
+              // Default: 100% or calculate if window is compact
+              if (window.innerHeight < 950) {
+                applyZoom(calculateFitPageZoom(), true);
+              } else {
+                applyZoom(1.0);
+              }
+            };
+          } catch (err) {
+            stateOverlay.innerHTML = `<span style="color: #fca5a5;">تعذر تحميل العقد: ${err.message || String(err)}</span>`;
+          }
+        }
+
+        loadDocument();
+      })();
+    </script>
+  </body>
+</html>

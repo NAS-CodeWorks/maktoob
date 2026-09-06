@@ -8,6 +8,8 @@ import type {
   Currency,
   DashboardSummary,
   OfficeProfile,
+  OfficeSnapshot,
+  OfficeTheme,
   PartyInput,
   PartySummary,
   Payment,
@@ -16,6 +18,7 @@ import type {
   PropertyDetails,
   VehicleDetails,
 } from '../shared/domain.js';
+import { contractHtml } from './contract-html.js';
 
 type ContractRow = {
   id: number;
@@ -41,6 +44,9 @@ type ContractRow = {
   second_party_phone: string;
   second_party_identifier: string;
   second_party_address: string;
+  first_party_photo: string | null;
+  second_party_photo: string | null;
+  office_snapshot_json: string | null;
   paid_amount: number;
   payments_count: number;
   created_at: string;
@@ -125,6 +131,16 @@ function validateVehicleDetails(input: unknown): VehicleDetails | null {
   };
 }
 
+function cleanPhoto(value: unknown, label: string): string | null {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value !== 'string') throw new Error(`${label}: صورة غير صالحة`);
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 2000000) throw new Error(`${label}: حجم الصورة كبير جداً (الحد الأقصى 1.5 ميغابايت)`);
+  if (!trimmed.startsWith('data:image/')) throw new Error(`${label}: صيغة الصورة غير مدعومة`);
+  return trimmed;
+}
+
 function validateContract(input: ContractInput): ContractInput {
   if (!input || typeof input !== 'object') throw new Error('بيانات العقد غير صالحة');
   if (!['draft', 'completed', 'pending_payment'].includes(input.status)) throw new Error('حالة العقد غير صالحة');
@@ -144,7 +160,14 @@ function validateContract(input: ContractInput): ContractInput {
     vehicleDetails: validateVehicleDetails(input.vehicleDetails),
     firstParty: validateParty(input.firstParty, 'الطرف الأول'),
     secondParty: validateParty(input.secondParty, 'الطرف الثاني'),
+    firstPartyPhoto: cleanPhoto(input.firstPartyPhoto, 'صورة الطرف الأول'),
+    secondPartyPhoto: cleanPhoto(input.secondPartyPhoto, 'صورة الطرف الثاني'),
   };
+}
+
+function financialStatus(status: Contract['status'], amount: number, paidAmount: number): Contract['status'] {
+  if (status === 'draft') return 'draft';
+  return paidAmount >= amount ? 'completed' : 'pending_payment';
 }
 
 function validateTemplate(input: ContractTemplateInput): ContractTemplateInput {
@@ -161,14 +184,31 @@ function validateTemplate(input: ContractTemplateInput): ContractTemplateInput {
   };
 }
 
+const VALID_THEMES: OfficeTheme[] = ['original', 'official', 'iraqi_warm', 'high_contrast'];
+
 function validateOfficeProfile(input: OfficeProfile): OfficeProfile {
   if (!input || typeof input !== 'object') throw new Error('بيانات المكتب غير صالحة');
+  let logoData: string | null | undefined = undefined;
+  if (input.logoData !== undefined) {
+    if (input.logoData === null || input.logoData === '') {
+      logoData = null;
+    } else if (typeof input.logoData === 'string') {
+      if (input.logoData.length > 1000000) throw new Error('حجم شعار المكتب كبير جداً');
+      if (!input.logoData.startsWith('data:image/')) throw new Error('صيغة شعار المكتب غير صالحة');
+      logoData = input.logoData;
+    } else {
+      throw new Error('شعار المكتب غير صالح');
+    }
+  }
+  const theme: OfficeTheme = input.theme && VALID_THEMES.includes(input.theme) ? input.theme : 'original';
   return {
     officeName: cleanText(input.officeName, 'اسم المكتب', true),
     managerName: cleanText(input.managerName, 'اسم المسؤول'),
     phone: cleanText(input.phone, 'هاتف المكتب'),
     address: cleanText(input.address, 'عنوان المكتب'),
     footerNote: cleanText(input.footerNote, 'تذييل المستند'),
+    theme,
+    ...(logoData !== undefined ? { logoData } : {}),
   };
 }
 
@@ -377,6 +417,59 @@ export class MaktoobDatabase {
       })();
       appliedVersions.add(4);
     }
+
+    if (!appliedVersions.has(5)) {
+      this.db.transaction(() => {
+        const profileColumns = this.db.prepare('PRAGMA table_info(office_profile)').all() as Array<{ name: string }>;
+        if (!profileColumns.some((column) => column.name === 'logo_data')) {
+          this.db.exec('ALTER TABLE office_profile ADD COLUMN logo_data TEXT DEFAULT NULL');
+        }
+        this.db.exec('INSERT OR IGNORE INTO schema_migrations(version) VALUES (5);');
+      })();
+      appliedVersions.add(5);
+    }
+
+    if (!appliedVersions.has(6)) {
+      this.db.transaction(() => {
+        const contractColumns = this.db.prepare('PRAGMA table_info(contracts)').all() as Array<{ name: string }>;
+        if (!contractColumns.some((col) => col.name === 'first_party_photo')) {
+          this.db.exec('ALTER TABLE contracts ADD COLUMN first_party_photo TEXT DEFAULT NULL');
+        }
+        if (!contractColumns.some((col) => col.name === 'second_party_photo')) {
+          this.db.exec('ALTER TABLE contracts ADD COLUMN second_party_photo TEXT DEFAULT NULL');
+        }
+        if (!contractColumns.some((col) => col.name === 'office_snapshot_json')) {
+          this.db.exec('ALTER TABLE contracts ADD COLUMN office_snapshot_json TEXT DEFAULT NULL');
+        }
+        const partyColumns = this.db.prepare('PRAGMA table_info(parties)').all() as Array<{ name: string }>;
+        if (!partyColumns.some((col) => col.name === 'photo_data')) {
+          this.db.exec('ALTER TABLE parties ADD COLUMN photo_data TEXT DEFAULT NULL');
+        }
+        const profileColumns = this.db.prepare('PRAGMA table_info(office_profile)').all() as Array<{ name: string }>;
+        if (!profileColumns.some((col) => col.name === 'theme')) {
+          this.db.exec("ALTER TABLE office_profile ADD COLUMN theme TEXT NOT NULL DEFAULT 'original'");
+        }
+        this.db.exec('INSERT OR IGNORE INTO schema_migrations(version) VALUES (6);');
+      })();
+      appliedVersions.add(6);
+    }
+
+    if (!appliedVersions.has(7)) {
+      this.db.transaction(() => {
+        this.db.exec(`
+          UPDATE contracts
+          SET status = 'pending_payment', updated_at = CURRENT_TIMESTAMP
+          WHERE status = 'completed'
+            AND amount > COALESCE((SELECT SUM(amount) FROM payments WHERE contract_id = contracts.id), 0);
+          UPDATE contracts
+          SET status = 'completed', updated_at = CURRENT_TIMESTAMP
+          WHERE status = 'pending_payment'
+            AND amount <= COALESCE((SELECT SUM(amount) FROM payments WHERE contract_id = contracts.id), 0);
+          INSERT OR IGNORE INTO schema_migrations(version) VALUES (7);
+        `);
+      })();
+      appliedVersions.add(7);
+    }
   }
 
   close() {
@@ -447,6 +540,9 @@ export class MaktoobDatabase {
       vehicleDetails: parseJson<VehicleDetails | null>(row.vehicle_details_json, null),
       firstParty: { id: row.first_party_id, name: row.first_party_name, phone: row.first_party_phone, identifier: row.first_party_identifier, address: row.first_party_address },
       secondParty: { id: row.second_party_id, name: row.second_party_name, phone: row.second_party_phone, identifier: row.second_party_identifier, address: row.second_party_address },
+      firstPartyPhoto: row.first_party_photo ?? null,
+      secondPartyPhoto: row.second_party_photo ?? null,
+      officeSnapshot: parseJson<OfficeSnapshot | null>(row.office_snapshot_json, null),
       paidAmount: row.paid_amount,
       remainingAmount: Math.max(0, row.amount - row.paid_amount),
       createdAt: row.created_at,
@@ -464,6 +560,22 @@ export class MaktoobDatabase {
     return rows.map((row) => this.mapContract(row) as ContractListItem);
   }
 
+  listContractsByTemplate(templateId: number): ContractListItem[] {
+    if (!Number.isInteger(templateId) || templateId <= 0) return [];
+    const rows = this.db.prepare(`${contractSelect}
+      WHERE c.template_id = ?
+      GROUP BY c.id ORDER BY c.contract_date DESC, c.id DESC`).all(templateId) as ContractRow[];
+    return rows.map((row) => this.mapContract(row) as ContractListItem);
+  }
+
+  listContractsByParty(partyId: number): ContractListItem[] {
+    if (!Number.isInteger(partyId) || partyId <= 0) return [];
+    const rows = this.db.prepare(`${contractSelect}
+      WHERE c.first_party_id = ? OR c.second_party_id = ?
+      GROUP BY c.id ORDER BY c.contract_date DESC, c.id DESC`).all(partyId, partyId) as ContractRow[];
+    return rows.map((row) => this.mapContract(row) as ContractListItem);
+  }
+
   getContract(id: number): Contract {
     if (!Number.isInteger(id) || id <= 0) throw new Error('رقم العقد غير صالح');
     const row = this.db.prepare(`${contractSelect} WHERE c.id = ? GROUP BY c.id`).get(id) as ContractRow | undefined;
@@ -473,18 +585,28 @@ export class MaktoobDatabase {
 
   createContract(raw: ContractInput): Contract {
     const input = validateContract(raw);
+    const status = financialStatus(input.status, input.amount, 0);
+    const officeProfile = this.getOfficeProfile();
+    const officeSnapshot: OfficeSnapshot = {
+      officeName: officeProfile.officeName,
+      managerName: officeProfile.managerName,
+      phone: officeProfile.phone,
+      address: officeProfile.address,
+      footerNote: officeProfile.footerNote,
+      logoData: officeProfile.logoData ?? null,
+    };
     const id = this.db.transaction(() => {
       const template = input.templateId ? this.getTemplate(input.templateId) : null;
       const firstPartyId = this.insertParty(input.firstParty);
       const secondPartyId = this.insertParty(input.secondParty);
       const result = this.db.prepare(`INSERT INTO contracts
-        (contract_number, type, contract_date, status, amount, currency, notes, template_id, template_name_snapshot, clauses_snapshot, property_details_json, vehicle_details_json, first_party_id, second_party_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        (contract_number, type, contract_date, status, amount, currency, notes, template_id, template_name_snapshot, clauses_snapshot, property_details_json, vehicle_details_json, first_party_id, second_party_id, first_party_photo, second_party_photo, office_snapshot_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
         .run(
           this.nextContractNumber(),
           input.type,
           input.contractDate,
-          input.status,
+          status,
           input.amount,
           input.currency,
           input.notes,
@@ -494,7 +616,10 @@ export class MaktoobDatabase {
           input.propertyDetails ? JSON.stringify(input.propertyDetails) : '',
           input.vehicleDetails ? JSON.stringify(input.vehicleDetails) : '',
           firstPartyId,
-          secondPartyId
+          secondPartyId,
+          input.firstPartyPhoto ?? null,
+          input.secondPartyPhoto ?? null,
+          JSON.stringify(officeSnapshot)
         );
       return Number(result.lastInsertRowid);
     })();
@@ -505,6 +630,7 @@ export class MaktoobDatabase {
     const input = validateContract(raw);
     const current = this.getContract(id);
     if (input.amount < current.paidAmount) throw new Error('لا يمكن جعل قيمة العقد أقل من مجموع الدفعات المسجلة');
+    const status = financialStatus(input.status, input.amount, current.paidAmount);
     this.db.transaction(() => {
       const templateChanged = input.templateId !== current.templateId;
       const template = templateChanged && input.templateId ? this.getTemplate(input.templateId) : null;
@@ -512,11 +638,12 @@ export class MaktoobDatabase {
       updateParty.run(input.firstParty.name, input.firstParty.phone, input.firstParty.identifier, input.firstParty.address, current.firstParty.id);
       updateParty.run(input.secondParty.name, input.secondParty.phone, input.secondParty.identifier, input.secondParty.address, current.secondParty.id);
       this.db.prepare(`UPDATE contracts SET type=?, contract_date=?, status=?, amount=?, currency=?, notes=?,
-        template_id=?, template_name_snapshot=?, clauses_snapshot=?, property_details_json=?, vehicle_details_json=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+        template_id=?, template_name_snapshot=?, clauses_snapshot=?, property_details_json=?, vehicle_details_json=?,
+        first_party_photo=?, second_party_photo=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
         .run(
           input.type,
           input.contractDate,
-          input.status,
+          status,
           input.amount,
           input.currency,
           input.notes,
@@ -525,6 +652,8 @@ export class MaktoobDatabase {
           templateChanged ? JSON.stringify(template?.clauses ?? []) : JSON.stringify(current.clauses),
           input.propertyDetails ? JSON.stringify(input.propertyDetails) : '',
           input.vehicleDetails ? JSON.stringify(input.vehicleDetails) : '',
+          input.firstPartyPhoto ?? null,
+          input.secondPartyPhoto ?? null,
           id
         );
     })();
@@ -598,14 +727,66 @@ export class MaktoobDatabase {
       phone: String(row.phone),
       address: String(row.address),
       footerNote: String(row.footer_note),
+      logoData: row.logo_data ? String(row.logo_data) : null,
+      theme: (row.theme as OfficeTheme) || 'original',
     };
   }
 
   updateOfficeProfile(raw: OfficeProfile): OfficeProfile {
     const input = validateOfficeProfile(raw);
-    this.db.prepare(`UPDATE office_profile SET office_name=?, manager_name=?, phone=?, address=?, footer_note=?, updated_at=CURRENT_TIMESTAMP WHERE id=1`)
-      .run(input.officeName, input.managerName, input.phone, input.address, input.footerNote);
+    this.db.prepare(`
+      UPDATE office_profile
+      SET office_name=?, manager_name=?, phone=?, address=?, footer_note=?,
+          theme=?,
+          logo_data = CASE WHEN ? IS NOT NULL THEN ? ELSE logo_data END,
+          updated_at=CURRENT_TIMESTAMP
+      WHERE id=1
+    `).run(
+      input.officeName, input.managerName, input.phone, input.address, input.footerNote,
+      input.theme ?? 'original',
+      input.logoData !== undefined ? (input.logoData || null) : null,
+      input.logoData !== undefined ? (input.logoData || null) : null
+    );
     return this.getOfficeProfile();
+  }
+
+  previewContractHtml(raw: ContractInput, customProfile?: OfficeProfile): string {
+    const input = validateContract(raw);
+    const template = input.templateId ? this.getTemplate(input.templateId) : null;
+    const profile = customProfile ? validateOfficeProfile(customProfile) : this.getOfficeProfile();
+    const virtualContract: Contract = {
+      id: 0,
+      contractNumber: 'معاينة-0000',
+      type: input.type,
+      contractDate: input.contractDate,
+      status: input.status,
+      amount: input.amount,
+      currency: input.currency,
+      notes: input.notes,
+      templateId: input.templateId,
+      templateName: template?.name ?? 'بنود العقد',
+      clauses: template?.clauses ?? [],
+      propertyDetails: input.propertyDetails ?? null,
+      vehicleDetails: input.vehicleDetails ?? null,
+      firstParty: { id: 0, ...input.firstParty },
+      secondParty: { id: 0, ...input.secondParty },
+      firstPartyPhoto: input.firstPartyPhoto ?? null,
+      secondPartyPhoto: input.secondPartyPhoto ?? null,
+      paidAmount: 0,
+      remainingAmount: input.amount,
+      payments: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    return contractHtml(virtualContract, profile);
+  }
+
+  renderContractHtml(id: number): string {
+    const contract = this.getContract(id);
+    const profile: OfficeProfile = contract.officeSnapshot
+      ? { ...contract.officeSnapshot, theme: 'original' }
+      : this.getOfficeProfile();
+    return contractHtml(contract, profile);
   }
 
   deleteContract(id: number) {
@@ -631,11 +812,12 @@ export class MaktoobDatabase {
   addPayment(raw: PaymentInput): Payment {
     const input = validatePayment(raw);
     const contract = this.getContract(input.contractId);
+    if (contract.status === 'draft') throw new Error('اعتمد العقد أولاً قبل تسجيل الدفعات');
     if (input.amount > contract.remainingAmount) throw new Error('قيمة الدفعة أكبر من المبلغ المتبقي');
     const id = this.db.transaction(() => {
       const result = this.db.prepare('INSERT INTO payments(contract_id, amount, payment_date, method, note) VALUES (?, ?, ?, ?, ?)')
         .run(input.contractId, input.amount, input.paymentDate, input.method, input.note);
-      if (input.amount === contract.remainingAmount && contract.status === 'pending_payment') {
+      if (input.amount === contract.remainingAmount && contract.status !== 'draft') {
         this.db.prepare("UPDATE contracts SET status='completed', updated_at=CURRENT_TIMESTAMP WHERE id=?").run(input.contractId);
       }
       return Number(result.lastInsertRowid);
@@ -645,8 +827,15 @@ export class MaktoobDatabase {
 
   deletePayment(id: number) {
     if (!Number.isInteger(id) || id <= 0) throw new Error('رقم الدفعة غير صالح');
-    const result = this.db.prepare('DELETE FROM payments WHERE id=?').run(id);
-    if (!result.changes) throw new Error('الدفعة غير موجودة');
+    const payment = this.db.prepare('SELECT contract_id FROM payments WHERE id=?').get(id) as { contract_id: number } | undefined;
+    if (!payment) throw new Error('الدفعة غير موجودة');
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM payments WHERE id=?').run(id);
+      const contract = this.getContract(payment.contract_id);
+      if (contract.status === 'completed' && contract.remainingAmount > 0) {
+        this.db.prepare("UPDATE contracts SET status='pending_payment', updated_at=CURRENT_TIMESTAMP WHERE id=?").run(payment.contract_id);
+      }
+    })();
   }
 
   listParties(query = ''): PartySummary[] {
@@ -679,11 +868,21 @@ export class MaktoobDatabase {
   dashboard(): DashboardSummary {
     const totals = this.db.prepare(`SELECT COUNT(*) AS total,
       SUM(CASE WHEN strftime('%Y-%m', contract_date)=strftime('%Y-%m','now','localtime') THEN 1 ELSE 0 END) AS current_month,
-      COALESCE(SUM(CASE WHEN currency='IQD' THEN amount ELSE 0 END),0) AS value_iqd FROM contracts`).get() as Record<string, number>;
-    const paid = this.db.prepare(`SELECT COALESCE(SUM(p.amount),0) AS total FROM payments p JOIN contracts c ON c.id=p.contract_id WHERE c.currency='IQD'`).get() as { total: number };
+      COALESCE(SUM(CASE WHEN currency='IQD' AND status<>'draft' THEN amount ELSE 0 END),0) AS value_iqd,
+      COALESCE(SUM(CASE WHEN currency='USD' AND status<>'draft' THEN amount ELSE 0 END),0) AS value_usd
+      FROM contracts`).get() as Record<string, number>;
+    const paid = this.db.prepare(`SELECT
+      COALESCE(SUM(CASE WHEN c.currency='IQD' THEN p.amount ELSE 0 END),0) AS total_iqd,
+      COALESCE(SUM(CASE WHEN c.currency='USD' THEN p.amount ELSE 0 END),0) AS total_usd
+      FROM payments p JOIN contracts c ON c.id=p.contract_id`).get() as { total_iqd: number; total_usd: number };
     return {
-      totalContracts: Number(totals.total), currentMonthContracts: Number(totals.current_month), receivedIQD: Number(paid.total),
-      pendingIQD: Math.max(0, Number(totals.value_iqd) - Number(paid.total)), recentContracts: this.listContracts().slice(0, 6),
+      totalContracts: Number(totals.total),
+      currentMonthContracts: Number(totals.current_month),
+      receivedIQD: Number(paid.total_iqd),
+      pendingIQD: Math.max(0, Number(totals.value_iqd) - Number(paid.total_iqd)),
+      receivedUSD: Number(paid.total_usd),
+      pendingUSD: Math.max(0, Number(totals.value_usd) - Number(paid.total_usd)),
+      recentContracts: this.listContracts().slice(0, 6),
     };
   }
 }

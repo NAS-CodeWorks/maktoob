@@ -3,7 +3,7 @@ import type { ContractInput, ContractTemplateInput, MaktoobAPI, OfficeProfile, P
 
 const api: MaktoobAPI = {
   platform: process.platform,
-  version: '1.0.0',
+  version: '1.1.0',
   getLicenseState: () => ipcRenderer.invoke('license:status'),
   importLicense: () => ipcRenderer.invoke('license:import'),
   dashboard: () => ipcRenderer.invoke('dashboard:get'),
@@ -12,6 +12,8 @@ const api: MaktoobAPI = {
   createContract: (input: ContractInput) => ipcRenderer.invoke('contracts:create', input),
   updateContract: (id: number, input: ContractInput) => ipcRenderer.invoke('contracts:update', id, input),
   deleteContract: (id: number) => ipcRenderer.invoke('contracts:delete', id),
+  previewContractHtml: (input: ContractInput, profile?: OfficeProfile) => ipcRenderer.invoke('contracts:preview-html', input, profile),
+  renderContractHtml: (id: number) => ipcRenderer.invoke('contracts:render-html', id),
   listTemplates: (query?: string) => ipcRenderer.invoke('templates:list', query),
   createTemplate: (input: ContractTemplateInput) => ipcRenderer.invoke('templates:create', input),
   updateTemplate: (id: number, input: ContractTemplateInput) => ipcRenderer.invoke('templates:update', id, input),
@@ -26,6 +28,17 @@ const api: MaktoobAPI = {
   printContract: (id: number) => ipcRenderer.invoke('contracts:print', id),
   createBackup: () => ipcRenderer.invoke('backup:create'),
   restoreBackup: () => ipcRenderer.invoke('backup:restore'),
+  openContractViewer: (id: number) => ipcRenderer.invoke('contracts:open-viewer', id),
+  editContractFromViewer: (id: number) => ipcRenderer.invoke('contracts:edit-from-viewer', id),
+  onEditContractRequested: (callback: (contractId: number) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, contractId: number) => callback(contractId);
+    ipcRenderer.on('contracts:edit-requested', handler);
+    return () => {
+      ipcRenderer.removeListener('contracts:edit-requested', handler);
+    };
+  },
+  listContractsByTemplate: (templateId: number) => ipcRenderer.invoke('contracts:list-by-template', templateId),
+  listContractsByParty: (partyId: number) => ipcRenderer.invoke('contracts:list-by-party', partyId),
 };
 
 contextBridge.exposeInMainWorld('maktoob', api);

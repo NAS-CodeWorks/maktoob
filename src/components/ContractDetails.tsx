@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { Contract, PaymentInput } from '../../shared/domain';
 import { StatusBadge } from './StatusBadge';
+import { ContractPreviewModal } from './ContractPreviewModal';
 
 const today = () => new Date().toISOString().slice(0, 10);
 const formatMoney = (value: number, currency: 'IQD' | 'USD' = 'IQD') =>
@@ -38,6 +39,7 @@ export function ContractDetails({
   const [error, setError] = useState('');
   const [printing, setPrinting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   const addPayment = async (input: PaymentInput) => {
     try {
@@ -81,6 +83,14 @@ export function ContractDetails({
     }
   };
 
+  const openViewer = async () => {
+    try {
+      await window.maktoob.openContractViewer(contract.id);
+    } catch (caught) {
+      setError(messageFrom(caught));
+    }
+  };
+
   return (
     <div className="modal-backdrop">
       <section className="modal details-modal" role="dialog" aria-modal="true">
@@ -90,6 +100,9 @@ export function ContractDetails({
             <h2>{contract.type}</h2>
           </div>
           <div className="head-actions">
+            <button className="secondary" onClick={openViewer} title="فتح العقد في نافذة المعاينة والطباعة المستقلة">
+              👁️ معاينة العقد
+            </button>
             <button className="secondary" onClick={printContract} disabled={printing}>
               {printing ? 'جارٍ إرسال الأمر…' : 'طباعة العقد'}
             </button>
@@ -162,16 +175,30 @@ export function ContractDetails({
 
         <div className="party-columns compact">
           <article>
-            <span>الطرف الأول</span>
-            <h3>{contract.firstParty.name}</h3>
-            <p>{contract.firstParty.phone || 'لا يوجد هاتف'} · {contract.firstParty.identifier || 'لا توجد هوية'}</p>
-            <small>{contract.firstParty.address || 'العنوان غير محدد'}</small>
+            <div className="party-compact-layout">
+              {contract.firstPartyPhoto && (
+                <img src={contract.firstPartyPhoto} alt="صورة الطرف الأول" className="party-compact-photo" />
+              )}
+              <div>
+                <span>الطرف الأول</span>
+                <h3>{contract.firstParty.name}</h3>
+                <p>{contract.firstParty.phone || 'لا يوجد هاتف'} · {contract.firstParty.identifier || 'لا توجد هوية'}</p>
+                <small>{contract.firstParty.address || 'العنوان غير محدد'}</small>
+              </div>
+            </div>
           </article>
           <article>
-            <span>الطرف الثاني</span>
-            <h3>{contract.secondParty.name}</h3>
-            <p>{contract.secondParty.phone || 'لا يوجد هاتف'} · {contract.secondParty.identifier || 'لا توجد هوية'}</p>
-            <small>{contract.secondParty.address || 'العنوان غير محدد'}</small>
+            <div className="party-compact-layout">
+              {contract.secondPartyPhoto && (
+                <img src={contract.secondPartyPhoto} alt="صورة الطرف الثاني" className="party-compact-photo" />
+              )}
+              <div>
+                <span>الطرف الثاني</span>
+                <h3>{contract.secondParty.name}</h3>
+                <p>{contract.secondParty.phone || 'لا يوجد هاتف'} · {contract.secondParty.identifier || 'لا توجد هوية'}</p>
+                <small>{contract.secondParty.address || 'العنوان غير محدد'}</small>
+              </div>
+            </div>
           </article>
         </div>
 
@@ -231,7 +258,7 @@ export function ContractDetails({
           )}
         </section>
 
-        {contract.remainingAmount > 0 && (
+        {contract.remainingAmount > 0 && contract.status !== 'draft' && (
           <form className="payment-form" onSubmit={handleSubmit(addPayment)}>
             <input type="hidden" {...register('contractId', { valueAsNumber: true })} />
             <label>
@@ -268,6 +295,15 @@ export function ContractDetails({
 
         {error && <div className="form-error">{error}</div>}
       </section>
+
+      {showPreview && (
+        <ContractPreviewModal
+          contractId={contract.id}
+          onClose={() => setShowPreview(false)}
+          onPrint={printContract}
+          onExportPdf={exportPdf}
+        />
+      )}
     </div>
   );
 }

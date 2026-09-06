@@ -4,7 +4,7 @@
 
 Windows desktop contract-management product for Iraqi offices, developed by NAS CodeWorks.
 
-## V1 Product Capabilities
+## V1.1 Product Capabilities
 - **Arabic-first RTL desktop application** designed for Windows 10/11 64-bit.
 - **Local-first offline operation** powered by SQLite in WAL mode; no external cloud dependency.
 - **Device-bound offline licensing** using cryptographic Ed25519 signatures (1 License = 1 Device). No internet connection required for activation.
@@ -24,6 +24,7 @@ Windows desktop contract-management product for Iraqi offices, developed by NAS 
   - Payment records, balance recalculation, and overpayment prevention
 - **Document generation and printing**:
   - Formal A4 documents with office branding headers and footers
+  - Live preview of saved and draft contracts with immutable office identity and party photos
   - Export to PDF and direct printing to Windows physical printers via native dialog
 - **Data safety and migrations**:
   - Deterministic SQLite migrations tracked in `schema_migrations`
@@ -55,7 +56,7 @@ npm run build
 # Package into unpacked directory
 npm run package:dir
 
-# Build production NSIS installer (Maktoob-1.0.0-x64.exe)
+# Build production NSIS installer (Maktoob-1.1.0-x64.exe)
 npm run package:win
 ```
 
