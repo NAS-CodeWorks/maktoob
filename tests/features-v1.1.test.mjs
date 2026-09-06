@@ -428,3 +428,25 @@ test('listContractsByParty: returns all contracts where party is first or second
   }
 });
 
+test('UpdateService: reports initial version and handles dev/unpackaged checks safely', async () => {
+  const { updateService } = await import('../dist-electron/electron/updater.js');
+  const state = updateService.getState();
+  assert.equal(state.status, 'idle');
+  assert.equal(state.currentVersion, '1.1.0');
+
+  const checkResult = await updateService.checkForUpdates();
+  assert.equal(checkResult.status, 'no-update');
+  assert.equal(checkResult.message, 'أنت تستخدم أحدث إصدار من مكتوب.');
+
+  await assert.rejects(
+    async () => updateService.downloadUpdate(),
+    /تنزيل التحديثات متاح فقط في النسخة المثبتة الرسمية/
+  );
+
+  await assert.rejects(
+    async () => updateService.quitAndInstall(),
+    /تثبيت التحديثات متاح فقط في النسخة المثبتة الرسمية/
+  );
+});
+
+

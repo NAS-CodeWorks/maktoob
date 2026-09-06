@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import type { OfficeProfile, OfficeTheme } from '../../shared/domain';
+import type { OfficeProfile, OfficeTheme, UpdateState } from '../../shared/domain';
 
 const messageFrom = (error: unknown) =>
   (error instanceof Error ? error.message : String(error)).replace(/^Error invoking remote method '[^']+': Error: /, '');
@@ -111,6 +111,69 @@ export function OfficeSettings({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [processingLogo, setProcessingLogo] = useState(false);
+
+  const [appVersion, setAppVersion] = useState('');
+  const [updateState, setUpdateState] = useState<UpdateState>({
+    status: 'idle',
+    currentVersion: '',
+  });
+  const [isChecking, setIsChecking] = useState(false);
+  const [dismissedUpdate, setDismissedUpdate] = useState(false);
+
+  useEffect(() => {
+    void window.maktoob.getAppVersion().then((v) => {
+      setAppVersion(v);
+    });
+    void window.maktoob.getUpdateState().then((state) => {
+      setUpdateState(state);
+    });
+    const unsubscribe = window.maktoob.onUpdateStateChanged((state) => {
+      setUpdateState(state);
+      setIsChecking(false);
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleCheckUpdate = async () => {
+    setIsChecking(true);
+    setDismissedUpdate(false);
+    try {
+      const state = await window.maktoob.checkForUpdates();
+      setUpdateState(state);
+    } catch {
+      setUpdateState({
+        status: 'error',
+        currentVersion: appVersion,
+        message: 'تعذر التحقق من وجود تحديث. تحقق من اتصال الإنترنت وحاول مرة أخرى.',
+      });
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  const handleDownloadUpdate = async () => {
+    try {
+      await window.maktoob.downloadUpdate();
+    } catch (err) {
+      setUpdateState((prev) => ({
+        ...prev,
+        status: 'error',
+        message: messageFrom(err),
+      }));
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    try {
+      await window.maktoob.installUpdate();
+    } catch (err) {
+      setUpdateState((prev) => ({
+        ...prev,
+        status: 'error',
+        message: messageFrom(err),
+      }));
+    }
+  };
 
   const isDirty =
     officeName !== profile.officeName ||
@@ -346,6 +409,115 @@ export function OfficeSettings({
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        {/* Section 3: About Maktoob & App Updates */}
+        <section className="settings-section card">
+          <div className="section-head">
+            <span className="eyebrow">حول النظام والتحديثات</span>
+            <h2>حول مكتوب وتحديثات التطبيق</h2>
+            <p>
+              تحديثات النظام تصدر عبر القنوات الرسمية المعتمدة لضمان استقرار وسرية بيانات المكتب.
+            </p>
+          </div>
+
+          <div className="about-maktoob-card">
+            <div className="about-brand-row">
+              <img src="./branding/maktoob-256.png" alt="مكتوب" className="about-logo" />
+              <div className="about-brand-info">
+                <h3>مكتوب</h3>
+                <p>من السجلات إلى الديسكتوب — نظام العقود للمكاتب العراقية</p>
+                <div className="about-version-badges">
+                  <span className="version-badge">الإصدار الحالي: {appVersion || '1.1.0'}</span>
+                  <span className="vendor-badge">NAS CodeWorks</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="updater-control-panel">
+              <div className="updater-status-line">
+                {isChecking || updateState.status === 'checking' ? (
+                  <span className="updater-text-checking">
+                    <span className="spinner-inline" /> جارٍ التحقق من وجود تحديث...
+                  </span>
+                ) : updateState.status === 'no-update' ? (
+                  <span className="updater-text-success">✓ أنت تستخدم أحدث إصدار من مكتوب.</span>
+                ) : updateState.status === 'update-available' && !dismissedUpdate ? (
+                  <div className="updater-available-box">
+                    <strong className="updater-text-available">
+                      يتوفر تحديث جديد: الإصدار {updateState.availableVersion}
+                    </strong>
+                    <div className="updater-actions-inline">
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={handleDownloadUpdate}
+                      >
+                        تنزيل التحديث
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setDismissedUpdate(true)}
+                      >
+                        لاحقاً
+                      </button>
+                    </div>
+                  </div>
+                ) : updateState.status === 'downloading' ? (
+                  <div className="updater-downloading-box">
+                    <span>جارٍ تنزيل التحديث — {updateState.percent ?? 0}%</span>
+                    <div className="progress-bar-track">
+                      <div
+                        className="progress-bar-fill"
+                        style={{ width: `${updateState.percent ?? 0}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : updateState.status === 'downloaded' ? (
+                  <div className="updater-downloaded-box">
+                    <strong>التحديث جاهز للتثبيت.</strong>
+                    <p>سيُعاد تشغيل مكتوب لتثبيت التحديث مع الحفاظ التام على بياناتك وسجلاتك.</p>
+                    <div className="updater-actions-inline">
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={handleInstallUpdate}
+                      >
+                        إعادة التشغيل والتثبيت
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setDismissedUpdate(true)}
+                      >
+                        لاحقاً
+                      </button>
+                    </div>
+                  </div>
+                ) : updateState.status === 'error' ? (
+                  <span className="updater-text-error">
+                    ⚠️ {updateState.message || 'تعذر التحقق من وجود تحديث. تحقق من اتصال الإنترنت وحاول مرة أخرى.'}
+                  </span>
+                ) : (
+                  <span className="updater-text-idle">اضغط على الزر للتحقق من توفر إصدارات أحدث من مكتوب.</span>
+                )}
+              </div>
+
+              <div className="updater-button-wrap">
+                <button
+                  type="button"
+                  className="secondary btn-check-updates"
+                  onClick={handleCheckUpdate}
+                  disabled={isChecking || updateState.status === 'checking' || updateState.status === 'downloading'}
+                >
+                  {isChecking || updateState.status === 'checking'
+                    ? 'جارٍ التحقق...'
+                    : 'التحقق من وجود تحديث'}
+                </button>
+              </div>
+            </div>
           </div>
         </section>
 

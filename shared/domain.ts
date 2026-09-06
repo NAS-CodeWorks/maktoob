@@ -176,6 +176,23 @@ export type LicenseState = {
   payload?: LicensePayload;
 };
 
+export type UpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'update-available'
+  | 'no-update'
+  | 'downloading'
+  | 'downloaded'
+  | 'error';
+
+export type UpdateState = {
+  status: UpdateStatus;
+  currentVersion: string;
+  availableVersion?: string;
+  percent?: number;
+  message?: string;
+};
+
 export type MaktoobAPI = {
   platform: string;
   version: string;
@@ -208,4 +225,11 @@ export type MaktoobAPI = {
   onEditContractRequested: (callback: (contractId: number) => void) => () => void;
   listContractsByTemplate: (templateId: number) => Promise<ContractListItem[]>;
   listContractsByParty: (partyId: number) => Promise<ContractListItem[]>;
+  getAppVersion: () => Promise<string>;
+  getUpdateState: () => Promise<UpdateState>;
+  checkForUpdates: () => Promise<UpdateState>;
+  downloadUpdate: () => Promise<void>;
+  installUpdate: () => Promise<void>;
+  onUpdateStateChanged: (callback: (state: UpdateState) => void) => () => void;
 };
+

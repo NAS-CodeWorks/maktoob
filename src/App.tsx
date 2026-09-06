@@ -101,6 +101,7 @@ export function App() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [license, setLicense] = useState<LicenseState | null>(null);
+  const [updateNotice, setUpdateNotice] = useState<string | null>(null);
 
   const notify = useCallback((value: string) => {
     setToast(value);
@@ -258,6 +259,16 @@ export function App() {
     if (!window.maktoob?.onEditContractRequested) return;
     const unsubscribe = window.maktoob.onEditContractRequested((contractId) => {
       void openContractEdit(contractId);
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!window.maktoob?.onUpdateStateChanged) return;
+    const unsubscribe = window.maktoob.onUpdateStateChanged((state) => {
+      if (state.status === 'update-available' && state.availableVersion) {
+        setUpdateNotice(state.availableVersion);
+      }
     });
     return unsubscribe;
   }, []);
@@ -815,6 +826,34 @@ export function App() {
               />
             </div>
           </section>
+        </div>
+      )}
+
+      {updateNotice && view !== 'settings' && (
+        <div className="update-floating-banner">
+          <div className="update-banner-info">
+            <span className="update-banner-icon">✨</span>
+            <span>يتوفر تحديث جديد لمكتوب — الإصدار {updateNotice}</span>
+          </div>
+          <div className="update-banner-actions">
+            <button
+              type="button"
+              className="primary btn-update-banner-view"
+              onClick={() => {
+                changeView('settings');
+                setUpdateNotice(null);
+              }}
+            >
+              عرض التحديث
+            </button>
+            <button
+              type="button"
+              className="text-button btn-update-banner-close"
+              onClick={() => setUpdateNotice(null)}
+            >
+              لاحقاً
+            </button>
+          </div>
         </div>
       )}
 

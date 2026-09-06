@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { MaktoobDatabase } from './database.js';
 import { registerIpc } from './ipc.js';
 import { LicenseManager } from './licensing.js';
+import { updateService } from './updater.js';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -80,6 +81,7 @@ app.whenReady().then(async () => {
   );
   await licenseManager.initialize();
   registerIpc(database, licenseManager);
+  updateService.initialize();
 
   // Create single continuous application window
   createMainWindow(iconPath);
