@@ -1,0 +1,114 @@
+name: Release Maktoob
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - package-lock.json
+      - src/**
+      - electron/**
+      - shared/**
+      - resources/**
+      - public/**
+      - .github/workflows/release.yml
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=v$version" >> $env:GITHUB_OUTPUT
+
+      - name: Check whether release already exists
+        id: existing
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "v${{ steps.version.outputs.version }}"
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            "exists=true" >> $env:GITHUB_OUTPUT
+          } else {
+            "exists=false" >> $env:GITHUB_OUTPUT
+            $global:LASTEXITCODE = 0
+          }
+
+      - name: Install dependencies
+        if: steps.existing.outputs.exists != 'true'
+        run: npm ci
+
+      - name: Typecheck
+        if: steps.existing.outputs.exists != 'true'
+        run: npm run typecheck
+
+      - name: Lint
+        if: steps.existing.outputs.exists != 'true'
+        run: npm run lint
+
+      - name: Tests
+        if: steps.existing.outputs.exists != 'true'
+        run: npm test
+
+      - name: Build
+        if: steps.existing.outputs.exists != 'true'
+        run: npm run build
+
+      - name: Package Windows
+        if: steps.existing.outputs.exists != 'true'
+        run: npm run package:win
+
+      - name: Verify updater assets
+        if: steps.existing.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $exe = "release/Maktoob-$version-x64.exe"
+          if (!(Test-Path $exe)) { throw "Missing installer: $exe" }
+          if (!(Test-Path "release/latest.yml")) { throw "Missing release/latest.yml" }
+          $blockmap = "$exe.blockmap"
+          if (!(Test-Path $blockmap)) { throw "Missing blockmap: $blockmap" }
+          Get-FileHash $exe -Algorithm SHA256 | Format-List
+
+      - name: Create GitHub Release
+        if: steps.existing.outputs.exists != 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $tag = "v$version"
+          $exe = "release/Maktoob-$version-x64.exe"
+          $blockmap = "$exe.blockmap"
+          $notes = @"
+          ## مكتوب $version
+
+          تحديث صيانة وتحسين واجهة الاستخدام.
+
+          - تحسين وضوح حقول ونوافذ تحرير العقود.
+          - تحسين القوائم المنسدلة وحالات التركيز والتفاعل.
+          - تفعيل أصول Form System الجديدة ضمن حزمة الواجهة.
+          - الحفاظ على نظام التحديث التلقائي والبيانات المحلية والترخيص.
+
+          يتم تثبيت هذا الإصدار تلقائياً عبر نظام تحديث مكتوب أو يدوياً من ملف التثبيت.
+          "@
+          gh release create $tag $exe "release/latest.yml" $blockmap --target "${{ github.sha }}" --title "Maktoob v$version" --notes $notes --latest

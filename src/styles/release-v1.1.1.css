@@ -1,0 +1,159 @@
+/* Maktoob v1.1.1 — visible contract editor polish */
+
+.contract-modal {
+  width: min(1180px, calc(100vw - 56px));
+  max-height: calc(100vh - 48px);
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(16, 37, 29, 0.2);
+  overflow: hidden;
+}
+
+.contract-modal .modal-head {
+  padding: 22px 26px 18px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+}
+
+.contract-modal form {
+  padding: 22px 26px 96px;
+}
+
+.contract-modal .form-grid {
+  gap: 16px;
+}
+
+.contract-modal label,
+.contract-modal fieldset {
+  min-width: 0;
+}
+
+.contract-modal label > span,
+.contract-modal legend {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #30473e;
+}
+
+.contract-modal input,
+.contract-modal select,
+.contract-modal textarea {
+  min-height: 44px;
+  border: 1px solid #cbd6d1;
+  border-radius: 10px;
+  background: #fff;
+  color: #10251d;
+  font: inherit;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.contract-modal input:hover,
+.contract-modal select:hover,
+.contract-modal textarea:hover {
+  border-color: #aebdb6;
+}
+
+.contract-modal input:focus,
+.contract-modal select:focus,
+.contract-modal textarea:focus {
+  outline: none;
+  border-color: #c5a664;
+  box-shadow: 0 0 0 3px rgba(197, 166, 100, 0.16);
+}
+
+.contract-modal select {
+  appearance: none;
+  cursor: pointer;
+  padding-inline: 14px 42px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #385247 50%),
+    linear-gradient(135deg, #385247 50%, transparent 50%);
+  background-position:
+    left 20px center,
+    left 14px center;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.contract-modal select:disabled {
+  cursor: not-allowed;
+  color: #8a9892;
+  background-color: #f5f7f6;
+}
+
+.contract-modal .money-input {
+  border: 1px solid #cbd6d1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.contract-modal .money-input:focus-within {
+  border-color: #c5a664;
+  box-shadow: 0 0 0 3px rgba(197, 166, 100, 0.16);
+}
+
+.contract-modal .money-input input,
+.contract-modal .money-input select {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.contract-modal fieldset {
+  border: 1px solid #d7e0dc !important;
+  border-radius: 14px !important;
+  padding: 18px !important;
+  background: #fbfcfb;
+}
+
+.contract-modal .party-columns {
+  gap: 18px;
+}
+
+.contract-modal .party-columns > fieldset {
+  background: #fff;
+}
+
+.contract-modal .party-content-grid {
+  gap: 18px;
+  align-items: start;
+}
+
+.contract-modal .notes-field {
+  margin-top: 18px;
+}
+
+.contract-modal .notes-field textarea {
+  min-height: 104px;
+  resize: vertical;
+}
+
+.contract-modal .modal-actions {
+  position: sticky;
+  bottom: 0;
+  margin: 22px -26px -96px;
+  padding: 16px 26px;
+  border-top: 1px solid #dce4e0;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(10px);
+  z-index: 5;
+}
+
+.contract-modal .icon-button {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+}
+
+@media (max-width: 1199px) {
+  .contract-modal {
+    width: calc(100vw - 32px);
+    max-height: calc(100vh - 32px);
+  }
+
+  .contract-modal .party-columns {
+    grid-template-columns: 1fr;
+  }
+}
