@@ -7,6 +7,7 @@ import type { ContractInput, ContractTemplateInput, OfficeProfile, PaymentInput 
 import { MaktoobDatabase } from './database.js';
 import { contractHtml } from './contract-html.js';
 import { LicenseManager } from './licensing.js';
+import { updateService } from './updater.js';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -220,4 +221,11 @@ export function registerIpc(database: MaktoobDatabase, licenseManager: LicenseMa
       setTimeout(() => { if (!window.isDestroyed()) window.destroy(); }, 20000);
     }
   });
+
+  ipcMain.handle('app:get-version', () => app.getVersion());
+  ipcMain.handle('updater:get-state', () => updateService.getState());
+  ipcMain.handle('updater:check', () => updateService.checkForUpdates(false));
+  ipcMain.handle('updater:download', () => updateService.downloadUpdate());
+  ipcMain.handle('updater:install', () => updateService.quitAndInstall());
 }
+

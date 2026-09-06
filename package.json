@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "better-sqlite3": "13.0.3",
+    "electron-updater": "^6.8.9",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "7.87.0"
@@ -54,6 +55,11 @@
     "asar": true,
     "directories": {
       "output": "release"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "NAS-CodeWorks",
+      "repo": "maktoob"
     },
     "artifactName": "Maktoob-${version}-${arch}.${ext}",
     "files": [

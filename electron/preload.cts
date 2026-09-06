@@ -39,6 +39,19 @@ const api: MaktoobAPI = {
   },
   listContractsByTemplate: (templateId: number) => ipcRenderer.invoke('contracts:list-by-template', templateId),
   listContractsByParty: (partyId: number) => ipcRenderer.invoke('contracts:list-by-party', partyId),
+  getAppVersion: () => ipcRenderer.invoke('app:get-version'),
+  getUpdateState: () => ipcRenderer.invoke('updater:get-state'),
+  checkForUpdates: () => ipcRenderer.invoke('updater:check'),
+  downloadUpdate: () => ipcRenderer.invoke('updater:download'),
+  installUpdate: () => ipcRenderer.invoke('updater:install'),
+  onUpdateStateChanged: (callback: (state: import('../shared/domain').UpdateState) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: import('../shared/domain').UpdateState) => callback(state);
+    ipcRenderer.on('updater:state-changed', handler);
+    return () => {
+      ipcRenderer.removeListener('updater:state-changed', handler);
+    };
+  },
 };
 
 contextBridge.exposeInMainWorld('maktoob', api);
+
