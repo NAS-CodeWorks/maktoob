@@ -27,15 +27,34 @@
           radial-gradient(circle at 50% 38%, #183a2d 0%, #10251D 65%, #091712 100%),
           radial-gradient(ellipse at 50% 95%, rgba(197, 166, 100, 0.08) 0%, transparent 70%);
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
         text-align: center;
         font-family: "Segoe UI", Tahoma, sans-serif;
         color: #F5F3ED;
         user-select: none;
-        transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
         pointer-events: all;
+        overflow: hidden;
+
+        /* Proportional scaling calibrated for 1440x900 base down to 1100x700 min */
+        --splash-icon-size: clamp(180px, calc(180px + 60 * ((100vw - 1100px) / 340)), 240px);
+        --splash-gap-icon-wordmark: clamp(22px, calc(22px + 6 * ((100vw - 1100px) / 340)), 28px);
+        --splash-wordmark-size: clamp(36px, calc(36px + 10 * ((100vw - 1100px) / 340)), 46px);
+        --splash-gap-wordmark-tagline: clamp(8px, calc(8px + 2 * ((100vw - 1100px) / 340)), 10px);
+        --splash-tagline-size: clamp(16px, calc(16px + 4 * ((100vw - 1100px) / 340)), 20px);
+        --splash-optical-shift: clamp(-26px, calc(-20px - 6 * ((100vw - 1100px) / 340)), -20px);
+      }
+
+      @media (max-height: 750px) {
+        #startup-overlay {
+          --splash-icon-size: clamp(180px, 26vh, 200px);
+          --splash-gap-icon-wordmark: 22px;
+          --splash-wordmark-size: 38px;
+          --splash-gap-wordmark-tagline: 8px;
+          --splash-tagline-size: 16px;
+          --splash-optical-shift: -18px;
+        }
       }
 
       #startup-overlay.fade-out {
@@ -43,92 +62,96 @@
         pointer-events: none;
       }
 
-      .startup-ambient-glow {
-        position: absolute;
-        top: 40%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 280px;
-        height: 280px;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(197, 166, 100, 0.35) 0%, rgba(197, 166, 100, 0.1) 45%, transparent 70%);
-        opacity: 0;
-        animation: startupGlowBloom 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
-        pointer-events: none;
+      /* Centered visual group (Icon + Wordmark + Tagline) as one optical unit */
+      .startup-group {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transform: translateY(var(--splash-optical-shift));
       }
 
-      .startup-golden-waves {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        height: 120px;
-        pointer-events: none;
-        opacity: 0.25;
-        background: radial-gradient(ellipse at 50% 100%, rgba(197, 166, 100, 0.45) 0%, transparent 75%);
-      }
-
+      /* 1. App Icon visual size: 240px x 240px at 1440x900 */
       .startup-mark-wrapper {
         position: relative;
-        width: 115px;
-        height: 115px;
-        margin-bottom: 22px;
+        width: var(--splash-icon-size);
+        height: var(--splash-icon-size);
         display: flex;
         align-items: center;
         justify-content: center;
         opacity: 0;
         transform: scale(0.94);
-        animation: startupMarkEntrance 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
-        z-index: 2;
+        animation: startupIconEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
       }
 
-      .startup-mark-svg {
+      .startup-mark-image {
+        position: relative;
+        z-index: 2;
         width: 100%;
         height: 100%;
-        filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.5));
+        object-fit: contain;
+        display: block;
+        filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.45));
       }
 
+      /* 7. Subtle Warm Ambient Glow: max opacity 0.12, blur 28px behind icon only */
+      .startup-ambient-glow {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90%;
+        height: 90%;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(197, 166, 100, 0.28) 0%, rgba(197, 166, 100, 0.08) 50%, transparent 70%);
+        filter: blur(28px);
+        opacity: 0.12;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      /* 2 & 3. Text Group containing Wordmark & Tagline */
       .startup-text-group {
         position: relative;
         display: flex;
         flex-direction: column;
         align-items: center;
-        z-index: 2;
-        opacity: 0;
-        transform: translateY(6px);
-        animation: startupTextFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.6s forwards;
+        justify-content: center;
+        margin-top: var(--splash-gap-icon-wordmark);
       }
 
+      /* 2. Arabic Wordmark: 46px, 700 weight */
       .startup-title {
-        font-size: 38px;
+        font-size: var(--splash-wordmark-size);
         font-weight: 700;
         color: #F5F3ED;
-        letter-spacing: 0.5px;
-        line-height: 1.2;
+        line-height: 1.15;
         margin: 0;
-        text-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+        padding: 0;
+        letter-spacing: 0;
+        text-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+        opacity: 0;
+        transform: translateY(8px);
+        animation: startupWordmarkEntrance 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.45s forwards;
       }
 
+      /* 3. Tagline: 20px, 500 weight, warm gold (#C5A664) */
       .startup-tagline {
-        font-size: 15px;
+        font-size: var(--splash-tagline-size);
         font-weight: 500;
         color: #C5A664;
-        margin: 8px 0 0 0;
-        letter-spacing: 0.3px;
+        line-height: 1.25;
+        margin: var(--splash-gap-wordmark-tagline) 0 0 0;
+        padding: 0;
+        letter-spacing: 0;
+        opacity: 0;
+        transform: translateY(6px);
+        animation: startupTaglineEntrance 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.65s forwards;
       }
 
-      .startup-latin {
-        font-size: 11px;
-        font-weight: 600;
-        color: #C5A664;
-        letter-spacing: 8px;
-        margin-top: 10px;
-        opacity: 0.85;
-        text-indent: 8px;
-        direction: ltr;
-      }
-
-      @keyframes startupMarkEntrance {
+      /* 6. Motion Sequences */
+      @keyframes startupIconEntrance {
         0% {
           opacity: 0;
           transform: scale(0.94);
@@ -139,21 +162,18 @@
         }
       }
 
-      @keyframes startupGlowBloom {
+      @keyframes startupWordmarkEntrance {
         0% {
           opacity: 0;
-          transform: translate(-50%, -50%) scale(0.7);
-        }
-        60% {
-          opacity: 0.9;
+          transform: translateY(8px);
         }
         100% {
-          opacity: 0.75;
-          transform: translate(-50%, -50%) scale(1.0);
+          opacity: 1;
+          transform: translateY(0);
         }
       }
 
-      @keyframes startupTextFadeIn {
+      @keyframes startupTaglineEntrance {
         0% {
           opacity: 0;
           transform: translateY(6px);
@@ -167,15 +187,15 @@
   </head>
   <body>
     <div id="startup-overlay">
-      <div class="startup-ambient-glow"></div>
-      <div class="startup-golden-waves"></div>
-      <div class="startup-mark-wrapper">
-        <img src="./branding/maktoob-256.png" alt="مكتوب" class="startup-mark-image" />
-      </div>
-      <div class="startup-text-group">
-        <h1 class="startup-title">مكتوب</h1>
-        <p class="startup-tagline">من السجلات إلى الديسكتوب</p>
-        <span class="startup-latin">MAKTOOB</span>
+      <div class="startup-group">
+        <div class="startup-mark-wrapper">
+          <div class="startup-ambient-glow ambient-glow"></div>
+          <img src="./branding/maktoob-256.png" alt="مكتوب" class="startup-mark-image" />
+        </div>
+        <div class="startup-text-group">
+          <h1 class="startup-title">مكتوب</h1>
+          <p class="startup-tagline">من السجلات إلى الديسكتوب</p>
+        </div>
       </div>
     </div>
     <div id="root"></div>
